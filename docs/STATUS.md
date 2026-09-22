@@ -4,7 +4,7 @@
 **Active phase:** Phase 0 — foundations
 **Active scope:** Track A only; Track B is deferred.
 **Active branch:** `phase0/blackwell-env`
-**PR:** #19 (draft; implementation and cluster validation complete)
+**PR:** #19 (ready for review; CI green)
 
 ## Done
 
@@ -43,8 +43,8 @@
 
 ## In progress
 
-- PR #19 needs its final repository-wide checks and GitHub CI review before it
-  is marked ready.
+- PR #19 is awaiting owner review and merge. Its local repository-wide checks
+  and GitHub `quality` workflow passed.
 
 ## Next
 
