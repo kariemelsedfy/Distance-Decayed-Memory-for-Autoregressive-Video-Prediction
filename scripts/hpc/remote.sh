@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/hpc/remote.sh [--env-file PATH] "REMOTE COMMAND"
+Usage: scripts/hpc/remote.sh [--env-file PATH] [--timeout SECONDS] "REMOTE COMMAND"
 
 Runs one non-interactive command on Bowdoin HPC. Password output is suppressed.
 If BOWDOIN_HPC_PASSWORD is absent, SSH key authentication is attempted.
@@ -12,15 +12,43 @@ EOF
 }
 
 env_file=".env.hpc.local"
-if [[ "${1:-}" == "--env-file" ]]; then
-  [[ $# -ge 3 ]] || { usage >&2; exit 2; }
-  env_file="$2"
-  shift 2
-fi
+ssh_timeout=60
 
-if [[ $# -ne 1 || "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-  usage
-  [[ $# -eq 1 ]] && exit 0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env-file)
+      env_file="${2:?missing value for --env-file}"
+      shift 2
+      ;;
+    --timeout)
+      ssh_timeout="${2:?missing value for --timeout}"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "Unknown argument: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [[ $# -ne 1 ]]; then
+  usage >&2
+  exit 2
+fi
+if [[ ! "$ssh_timeout" =~ ^[1-9][0-9]*$ ]]; then
+  echo "--timeout must be a positive integer number of seconds." >&2
   exit 2
 fi
 
@@ -39,6 +67,7 @@ set +a
 : "${BOWDOIN_HPC_USER:?Missing BOWDOIN_HPC_USER in $env_file}"
 
 export BOWDOIN_HPC_REMOTE_COMMAND="$remote_command"
+export BOWDOIN_HPC_SSH_TIMEOUT="$ssh_timeout"
 
 if [[ -n "${BOWDOIN_HPC_PASSWORD:-}" ]]; then
   command -v expect >/dev/null 2>&1 || {
@@ -48,7 +77,7 @@ if [[ -n "${BOWDOIN_HPC_PASSWORD:-}" ]]; then
 
   set +e
   expect <<'EOF'
-set timeout 60
+set timeout $env(BOWDOIN_HPC_SSH_TIMEOUT)
 log_user 0
 set sent_password 0
 set target "$env(BOWDOIN_HPC_USER)@$env(BOWDOIN_HPC_HOST)"

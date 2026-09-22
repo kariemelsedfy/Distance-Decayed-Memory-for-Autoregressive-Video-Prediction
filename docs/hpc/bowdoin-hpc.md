@@ -20,12 +20,13 @@ on the older notes below.
 | GPU-partition policy | Jobs on `gpu` must request a GPU GRES; Slurm rejects CPU-only allocations on this partition. |
 | Compute-node internet | Outbound DNS/TLS/HTTPS works on both `moose68` and `moose69`; Hugging Face returned HTTP 200 on both, and the W&B API endpoint was reachable from `moose68`. |
 | Inter-node links | Both nodes report `bond0` using IEEE 802.3ad link aggregation with two up, full-duplex **100,000 Mbps** member links. This identifies the link configuration, not measured training throughput. |
-| Scratch filesystem | Gluster filesystem is **35 TB total, 34 TB available, 2% used**; this user's scratch usage was 4 KB at the check. No per-user scratch quota was exposed by `quota -s`, so confirm allocation and purge policy with HPC staff. |
-| Home quota warning | This account reported 25,402 MB used against a 25,600 MB hard limit. Keep all caches, logs, data, checkpoints, and environments on scratch. |
+| Scratch filesystem | Gluster filesystem is **35 TB total, 34 TB available, 2% used**; this user's scratch usage was 8.2 GB after building the Phase 0 environment. No per-user scratch quota was exposed by `quota -s`, so confirm allocation and purge policy with HPC staff. |
+| Home quota warning | This account reported 25,600 MB used against a 25,600 MB hard limit after the environment build. Keep all caches, logs, data, checkpoints, and environments on scratch. |
+| Blackwell software probe | On `moose68`, PyTorch 2.11.0+cu128 recognized compute capability 12.0 and bf16. Forced math, Flash, efficient, and cuDNN SDPA backends plus compiled FlexAttention all returned finite outputs. See [`blackwell-kernels.md`](blackwell-kernels.md). |
 
-Evidence came from read-only Slurm/storage queries and short jobs `68124`,
-`68125`, and `68126`, each capped at two minutes. No benchmark or long-running
-GPU workload was launched.
+Evidence came from read-only Slurm/storage queries, two-minute jobs
+`68124`–`68126`, and the 15-minute-capped kernel check `68171`. No benchmark or
+long-running GPU workload was launched.
 
 ---
 
@@ -150,8 +151,8 @@ Check before you debug anything else:
   fails. Prefer `-w moose66` for A100 work.
 - `onnxruntime-gpu` logs a missing `libcublasLt.so.11` CUDA-provider error on the
   older cards; it falls back to CPU and jobs still complete.
-- pro6000 driver `610.43.02`; `nvcc` under `cuda-12.8.1` reports CUDA 12.8, and
-  PyTorch `cu128` wheels work there.
+- `moose68` reported pro6000 driver `615.71.09`; PyTorch 2.11.0+cu128 and its
+  CUDA 12.8 runtime work on `sm_120` there.
 
 ---
 
@@ -198,6 +199,10 @@ I've never had anything deleted, but don't assume it's permanent.)*
   `conda create -p /mnt/hpc/tmp/$USER/envs/<name> python=3.11`
 - Call the env's interpreter by absolute path in jobs (`$ENV/bin/python`) rather
   than relying on `conda activate` inside a non-interactive shell
+- Verified on `moose68`: Python 3.11.16, PyTorch 2.11.0+cu128, CUDA runtime
+  12.8, Triton 3.6.0, bf16, all four PyTorch SDPA backends, and compiled
+  FlexAttention. This was a correctness smoke test, not a benchmark; see
+  [`blackwell-kernels.md`](blackwell-kernels.md).
 - `huggingface-cli download` is deprecated — the working form is
   `hf download <repo> --local-dir <path>`
 
