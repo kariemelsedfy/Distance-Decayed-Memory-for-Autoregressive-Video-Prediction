@@ -31,20 +31,16 @@ echo "GPU inventory:"
 nvidia-smi --query-gpu=name,pci.bus_id,driver_version,compute_mode --format=csv
 echo "Git SHA: $(git rev-parse HEAD)"
 echo "Slurm allocation:"
-env | grep -E '^SLURM_(HET_SIZE|JOB_NODELIST|NTASKS)' | sort
+env | grep -E '^SLURM_(JOB_NODELIST|NNODES|NTASKS)' | sort
 scontrol show job "$SLURM_JOB_ID"
 git rev-parse HEAD > "$DD_MEMORY_RUN_DIR/git-sha.txt"
 
 launch=(
   --kill-on-bad-exit=1
+  --ntasks="$SLURM_NTASKS"
   --gpus-per-task=pro6000:1
   --gpu-bind=single:1
 )
-if [[ "${SLURM_HET_SIZE:-1}" -gt 1 ]]; then
-  launch+=(--het-group=0,1)
-else
-  launch+=(--ntasks="$SLURM_NTASKS")
-fi
 
 srun "${launch[@]}" \
     "$DD_MEMORY_CHECKOUT/scripts/hpc/launch_distributed.sh" \
