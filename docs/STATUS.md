@@ -4,7 +4,7 @@
 **Active phase:** Phase 0 — foundations
 **Active scope:** Track A only; Track B is deferred.
 **Active branch:** `phase0/bootstrap`
-**Draft PR:** #1
+**PR:** #1 (ready for review; CI green)
 
 ## Done
 
@@ -25,16 +25,17 @@
 - Initialized the empty GitHub repository with the original three-file baseline,
   then pushed the bootstrap work in small commits on `phase0/bootstrap`.
 - Opened draft PR #1 and linked issues #2, #3, and #4 to the work.
+- Marked PR #1 ready for review after its `quality` CI job passed.
 - Passed 3 repository tests, Ruff, Black, shell syntax checks, TOML/YAML parsing,
   appendix verification, and a dry render of the Slurm template.
 
 ## In progress
 
-- Draft PR #1 is open for review and CI.
+- PR #1 is awaiting owner review and merge.
 
 ## Next
 
-1. Review and merge draft PR #1 when CI is green.
+1. Review and merge PR #1.
 2. Continue Phase 0 with issue #5: build the scratch conda environment and run
    Blackwell kernel checks.
 3. Then address issue #6 (DDP/checkpoint/requeue) and issue #7 (literature refresh).

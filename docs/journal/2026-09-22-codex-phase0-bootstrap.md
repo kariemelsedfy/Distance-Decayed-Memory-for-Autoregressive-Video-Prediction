@@ -64,6 +64,10 @@ an initial `main` commit matching the original three-file starting state, pushed
 each Phase 0 commit immediately, opened draft PR #1, and added claim/progress
 comments to issues #2–#4.
 
+PR #1 was then marked ready for review after the GitHub Actions `quality` job
+passed. Issues #2–#4 have final completion comments and will close when the PR
+merges.
+
 There are no running jobs and no blocker for this bootstrap scope. After PR #1
 is reviewed and merged, Phase 0 continues with issue #5 (scratch environment and
 Blackwell kernels), issue #6 (DDP plus checkpoint/requeue), and issue #7
