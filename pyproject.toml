@@ -16,6 +16,9 @@ dev = [
   "ruff>=0.13",
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.black]
 line-length = 88
 target-version = ["py311"]
