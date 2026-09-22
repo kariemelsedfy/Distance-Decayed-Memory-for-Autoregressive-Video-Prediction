@@ -52,22 +52,22 @@ case "$mode" in
   one)
     job_name="ddp-one"
     batch_script="slurm/ddp-smoke.sbatch"
-    allocation="--nodes=1 --ntasks=1 --nodelist=moose68"
+    allocation="--nodes=1 --ntasks=1 --nodelist=moose68 --gres=gpu:pro6000:1"
     ;;
   node)
     job_name="ddp-node"
     batch_script="slurm/ddp-smoke.sbatch"
-    allocation="--nodes=1 --ntasks=4 --nodelist=moose69"
+    allocation="--nodes=1 --ntasks=4 --nodelist=moose69 --gres=gpu:pro6000:4"
     ;;
   multi)
     job_name="ddp-multi"
     batch_script="slurm/ddp-smoke.sbatch"
-    allocation="--nodes=2 --ntasks=7 --nodelist=moose68,moose69 --distribution=block"
+    allocation="--nodes=1 --ntasks=3 --nodelist=moose68 --gres=gpu:pro6000:3 : --partition=gpu --nodes=1 --ntasks=4 --nodelist=moose69 --gres=gpu:pro6000:4 --gpus-per-task=pro6000:1 --cpus-per-task=4 --mem=16G --time=$wall_time"
     ;;
   requeue)
     job_name="requeue-check"
     batch_script="slurm/requeue-check.sbatch"
-    allocation="--nodes=1 --ntasks=1 --nodelist=moose68"
+    allocation="--nodes=1 --ntasks=1 --nodelist=moose68 --gres=gpu:pro6000:1"
     ;;
   *) echo "Unknown mode: $mode" >&2; usage >&2; exit 2 ;;
 esac
@@ -82,14 +82,27 @@ set -euo pipefail
 checkout=$quoted_checkout
 test -f $quoted_batch
 mkdir -p "/mnt/hpc/tmp/\$USER/dd-memory/logs"
-sbatch --parsable $allocation \
+sbatch --parsable \
+  --partition=gpu \
   --time=$quoted_time \
   --job-name=$quoted_job_name \
+  --cpus-per-task=4 \
+  --mem=16G \
+  --gpus-per-task=pro6000:1 \
   --export=ALL,DD_MEMORY_CHECKOUT=\"\$checkout\",DD_MEMORY_RUN_ID=$quoted_run_id \
+  $allocation \
   $quoted_batch
 EOF
 
-job_id=$("$script_dir/remote.sh" --timeout 60 "$remote_command" | tr -d '\r' | tail -n 1)
+set +e
+response=$("$script_dir/remote.sh" --timeout 60 "$remote_command")
+remote_status=$?
+set -e
+if [[ $remote_status -ne 0 ]]; then
+  printf '%s\n' "$response" >&2
+  exit "$remote_status"
+fi
+job_id=$(printf '%s\n' "$response" | tr -d '\r' | tail -n 1)
 [[ "$job_id" =~ ^[0-9]+$ ]] || { echo "Unexpected sbatch response: $job_id" >&2; exit 1; }
 printf '%s\n' "$job_id"
 printf 'run-id: %s\n' "$run_id" >&2
