@@ -40,6 +40,8 @@ def run(args: argparse.Namespace) -> bool:
 
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is not available")
+    if STOP_REQUESTED:
+        print("SIGUSR1 arrived during startup; will checkpoint after one step.")
     if args.total_steps < 2 or args.step_seconds < 0:
         raise ValueError(
             "total-steps must be at least two and step-seconds nonnegative"
@@ -80,7 +82,6 @@ def run(args: argparse.Namespace) -> bool:
             + "\n"
         )
 
-    signal.signal(signal.SIGUSR1, request_stop)
     while step < args.total_steps:
         generator = torch.Generator(device=device).manual_seed(100_000 + step)
         inputs = torch.randn((32, 16), generator=generator, device=device)
@@ -125,6 +126,9 @@ def run(args: argparse.Namespace) -> bool:
 
 
 def main() -> int:
+    # Register before importing torch: CUDA initialization takes longer than
+    # the preemption timer, and an unhandled SIGUSR1 kills the process.
+    signal.signal(signal.SIGUSR1, request_stop)
     try:
         return 0 if run(parse_args()) else 99
     except Exception as error:  # noqa: BLE001 - report rank failures to Slurm

@@ -56,7 +56,7 @@ trap cleanup EXIT
 
 if [[ "${SLURM_RESTART_COUNT:-0}" -eq 0 ]]; then
   (
-    sleep "${DD_MEMORY_REQUEUE_AFTER_SECONDS:-8}"
+    sleep "${DD_MEMORY_REQUEUE_AFTER_SECONDS:-25}"
     kill -USR1 "$$"
   ) &
   timer_pid=$!
