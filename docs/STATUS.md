@@ -46,33 +46,37 @@
   `scripts/hpc/submit_phase0_smoke.sh` (modes `one`, `node`, `multi`, `requeue`).
 - Fixed the submit script passing literal quotes into `DD_MEMORY_CHECKOUT`
   (cause of failed job `68178`); commit `8fe148f`.
-- One-GPU DDP smoke job `68179` (moose68, `8fe148f`) passed: zero parameter
-  delta, exact all-reduce, NCCL 2.28.9.
+- Discovered the per-user QOS ceiling on both pro6000 partitions: **2 pro6000
+  GPUs per user**, and on `gpu` also 4 CPUs and 40G. Resized the smoke modes to
+  fit it and documented it in `docs/hpc/ddp-and-requeue.md`.
+- All four Phase 0 probes passed: `68179` (1 GPU), `68222` (2 GPUs on moose69,
+  24.3 GB/s), `68224` (1 GPU on each node, 11.0 GB/s over `bond0`), `68228`
+  (checkpoint at step 4, requeue, resume, finish). Every DDP parameter delta and
+  all-reduce error was exactly zero.
+- Fixed three real defects found by those runs: literal quotes in the Slurm
+  `--export` path, per-task GPU binding breaking NCCL's shared-memory transport,
+  and a `SIGUSR1` handler registered after the torch import.
 
 ## In progress
 
-- Four-GPU single-node job `68180` (moose69, run
-  `phase0-node-20260922T170816Z`) was submitted at `8fe148f`; the VPN dropped
-  before its result could be read. It is bounded to 10 minutes.
+- PR #20 covers issue #6 and is ready to mark for review once CI is green.
 
 ## Next
 
-1. Reconnect the VPN; read `68180` with `scripts/hpc/monitor.sh 68180` and
-   `runs/phase0-node-20260922T170816Z/results.json` on scratch.
-2. Submit `--mode multi` (7 GPUs, heterogeneous job across both nodes) and
-   `--mode requeue`, from checkout
-   `/mnt/hpc/tmp/kelsedfy/dd-memory/checkouts/phase0-ddp-requeue-20260922T170118Z`.
-   The heterogeneous launch path (`--het-group=0,1`, `WORLD_SIZE` from
-   `SLURM_NTASKS`) has not run yet and is the most likely to need a fix.
-3. Record results in `docs/EXPERIMENTS.md` and a `docs/hpc/` note, then mark
-   PR #20 ready.
-4. Issue #7 (literature refresh) remains independent.
+1. **Owner decision:** Track A can use at most 2 pro6000 GPUs per user under the
+   current QOS. Either plan the training budget around 2 GPUs or ask HPC staff
+   for a raised limit or a reservation on `moose68`/`moose69`.
+2. Mark PR #20 ready, review, merge, and close issue #6.
+3. Move to the next Phase 0 item once #6 is merged; issue #7 (literature
+   refresh) remains independent.
 
 ## Blockers
 
-HPC home is at its 25,600 MB hard limit; keep everything on scratch.
-VPN access was lost at about 17:15 UTC on 2026-09-22.
+- The 2-pro6000 per-user ceiling constrains every Track A scaling assumption
+  that expected up to 7 GPUs. Needs an owner decision (see Next, item 1).
+- HPC home remains at its 25,600 MB hard limit; keep everything on scratch.
 
 ## Running jobs
 
-- `68180` (ddp-node, ≤10 min) — status unconfirmed because of the VPN drop.
+None. Jobs `68179`, `68222`, `68224`, and `68228` completed; `68180` was
+cancelled as unrunnable under the QOS cap.
