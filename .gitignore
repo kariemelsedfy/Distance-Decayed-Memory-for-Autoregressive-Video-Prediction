@@ -1,0 +1,44 @@
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+.env.hpc.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Experiment products (keep summaries and generated figures intentionally)
+outputs/
+wandb/
+runs/
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+
+# Local data and caches
+data/
+.cache/
+
+# HPC transfer and generated Slurm files
+*.sbatch.generated
+*.jobid
