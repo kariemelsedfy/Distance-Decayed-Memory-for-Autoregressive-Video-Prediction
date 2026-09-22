@@ -7,6 +7,28 @@ project and it should still be true.
 
 ---
 
+## Phase 0 live verification — 2026-09-22
+
+The initial Track A bootstrap rechecked the current cluster rather than relying
+on the older notes below.
+
+| Item | Verified result |
+|---|---|
+| RTX PRO 6000 placement | **7 total:** 3 on `moose68`, 4 on `moose69` (`scontrol` also reports `gres/gpu:pro6000=7`). |
+| Card identity | `NVIDIA RTX PRO 6000 Blackwell Server Edition`, 97,887 MiB reported, Default compute mode (sampled on `moose68`). |
+| `gpu` wall time | Default **14 days**; maximum **30 days**; partition QoS is `maxgpu`. |
+| GPU-partition policy | Jobs on `gpu` must request a GPU GRES; Slurm rejects CPU-only allocations on this partition. |
+| Compute-node internet | Outbound DNS/TLS/HTTPS works on both `moose68` and `moose69`; Hugging Face returned HTTP 200 on both, and the W&B API endpoint was reachable from `moose68`. |
+| Inter-node links | Both nodes report `bond0` using IEEE 802.3ad link aggregation with two up, full-duplex **100,000 Mbps** member links. This identifies the link configuration, not measured training throughput. |
+| Scratch filesystem | Gluster filesystem is **35 TB total, 34 TB available, 2% used**; this user's scratch usage was 4 KB at the check. No per-user scratch quota was exposed by `quota -s`, so confirm allocation and purge policy with HPC staff. |
+| Home quota warning | This account reported 25,402 MB used against a 25,600 MB hard limit. Keep all caches, logs, data, checkpoints, and environments on scratch. |
+
+Evidence came from read-only Slurm/storage queries and short jobs `68124`,
+`68125`, and `68126`, each capped at two minutes. No benchmark or long-running
+GPU workload was launched.
+
+---
+
 ## 1. Getting on
 
 | Host | Role |
@@ -80,11 +102,11 @@ necessarily the full cluster:
 
 | `--gres` | Card | VRAM | Node(s) | Compute mode |
 |---|---|---|---|---|
-| `gpu:pro6000:1` | RTX PRO 6000 Blackwell Server Ed. | 96 GB | `moose68`, `moose69` | **Default** |
+| `gpu:pro6000:1` | RTX PRO 6000 Blackwell Server Ed. | 96 GB (97,887 MiB reported) | `moose68` (3), `moose69` (4) | **Default** |
 | `gpu:a100:1` | A100 | 40/80 GB *(unverified which)* | `moose63`, `moose66` | Exclusive_Process |
-| `gpu:rtx5090:1` | RTX 5090 | 32 GB | `moose63` | Exclusive_Process |
-| `gpu:rtx2080:1` | RTX 2080 | 11 GB | `moose64` | Exclusive_Process |
-| `gpu:rtx3080:1` | RTX 3080 | 10 GB | `moose63` | Exclusive_Process |
+| `gpu:rtx5090:1` | RTX 5090 | 32 GB | `moose63`, `moose66` | Exclusive_Process |
+| `gpu:rtx2080:1` | RTX 2080 | 11 GB | `moose54`, `moose59`–`moose62`, `moose64`, `moose65` | Exclusive_Process |
+| `gpu:rtx3080:1` | RTX 3080 | 10 GB | `moose63` (3), `moose66` (3) | Exclusive_Process |
 
 CPU nodes seen on `main`: `moose12`, `moose21`.
 
@@ -138,7 +160,7 @@ Check before you debug anything else:
 | Path | Size | Use |
 |---|---|---|
 | `/home/<user>` | **20 G soft / 25.6 G hard** | code and conda env only. A conda env alone is ~8–9 G, so this fills fast. |
-| `/mnt/hpc/tmp/<user>` | **~32 TB free**, `gluster1.bowdoin.edu:/gv0` | durable scratch — data, weights, checkpoints, logs |
+| `/mnt/hpc/tmp/<user>` | **35 TB total / 34 TB free** on 2026-09-22, `gluster1.bowdoin.edu:/gv0` | durable scratch — data, weights, checkpoints, logs |
 | node-local `/tmp` | per-node | runtime staging; fastest, disappears |
 
 Home fills up and then **everything fails in confusing ways**:
@@ -182,6 +204,9 @@ I've never had anything deleted, but don't assume it's permanent.)*
 ---
 
 ## 5. Slurm patterns
+
+The `gpu` partition currently has a 14-day default and 30-day maximum wall
+time. It requires a GPU GRES request even for an otherwise CPU-only probe.
 
 ### Job header
 
@@ -245,4 +270,3 @@ Wrap each stage as one script taking `--git-ref --partition --gres --cpus --mem
 | Fresh scratch clone fails immediately | gitignored deps (weights, external checkouts) absent | point env vars at persistent scratch copies |
 | `libcublasLt.so.11` not found (onnxruntime) | CUDA-provider mismatch on older cards | harmless; or pin CPU provider |
 | Job pends forever on `--gres=gpu:pro6000:1` | both pro6000 nodes busy | `sinfo` first; fall back to another card |
-
