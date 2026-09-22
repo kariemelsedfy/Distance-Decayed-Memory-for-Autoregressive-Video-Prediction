@@ -3,8 +3,8 @@
 **Updated:** 2026-09-22
 **Active phase:** Phase 0 — foundations
 **Active scope:** Track A only; Track B is deferred.
-**Active branch:** `phase0/blackwell-env`
-**PR:** #19 (ready for review; CI green)
+**Active branch:** `phase0/ddp-requeue`
+**PR:** #20 (draft; issue #6)
 
 ## Done
 
@@ -40,26 +40,39 @@
   compiled FlexAttention on `sm_120`.
 - Documented the result and its limits in `docs/hpc/blackwell-kernels.md` and
   updated the general Bowdoin HPC reference and experiment registry.
+- Merged PR #19 (closes issue #5).
+- On `phase0/ddp-requeue` (draft PR #20): added DDP/NCCL all-reduce and
+  checkpoint/resume probes, a distributed launcher, bounded Slurm scripts, and
+  `scripts/hpc/submit_phase0_smoke.sh` (modes `one`, `node`, `multi`, `requeue`).
+- Fixed the submit script passing literal quotes into `DD_MEMORY_CHECKOUT`
+  (cause of failed job `68178`); commit `8fe148f`.
+- One-GPU DDP smoke job `68179` (moose68, `8fe148f`) passed: zero parameter
+  delta, exact all-reduce, NCCL 2.28.9.
 
 ## In progress
 
-- PR #19 is awaiting owner review and merge. Its local repository-wide checks
-  and GitHub `quality` workflow passed.
+- Four-GPU single-node job `68180` (moose69, run
+  `phase0-node-20260922T170816Z`) was submitted at `8fe148f`; the VPN dropped
+  before its result could be read. It is bounded to 10 minutes.
 
 ## Next
 
-1. Review and merge PR #19, which closes issue #5.
-2. Continue Phase 0 with issue #6: run the 1-GPU, per-node, and multi-node DDP
-   smoke tests, measure all-reduce bandwidth, and validate checkpoint/requeue.
-3. Address issue #7 (literature refresh) independently when useful.
+1. Reconnect the VPN; read `68180` with `scripts/hpc/monitor.sh 68180` and
+   `runs/phase0-node-20260922T170816Z/results.json` on scratch.
+2. Submit `--mode multi` (7 GPUs, heterogeneous job across both nodes) and
+   `--mode requeue`, from checkout
+   `/mnt/hpc/tmp/kelsedfy/dd-memory/checkouts/phase0-ddp-requeue-20260922T170118Z`.
+   The heterogeneous launch path (`--het-group=0,1`, `WORLD_SIZE` from
+   `SLURM_NTASKS`) has not run yet and is the most likely to need a fix.
+3. Record results in `docs/EXPERIMENTS.md` and a `docs/hpc/` note, then mark
+   PR #20 ready.
+4. Issue #7 (literature refresh) remains independent.
 
 ## Blockers
 
-No code blocker. The HPC home directory now reports 25,600 MB used against its
-25,600 MB hard limit. Keep caches, environments, logs, data, checkpoints, and
-temporary build files on scratch; do not add anything to home.
+HPC home is at its 25,600 MB hard limit; keep everything on scratch.
+VPN access was lost at about 17:15 UTC on 2026-09-22.
 
 ## Running jobs
 
-None. Final environment refresh job `68170` and Blackwell probe `68171`
-completed; `scripts/hpc/status.sh` showed an empty personal queue afterward.
+- `68180` (ddp-node, ≤10 min) — status unconfirmed because of the VPN drop.
