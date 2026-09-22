@@ -27,13 +27,14 @@ def record_cuda_call(
     try:
         output = function()
         torch.cuda.synchronize()
+        finite = bool(torch.isfinite(output).all().item())
         return {
             "name": name,
-            "passed": True,
+            "passed": finite,
             "elapsed_seconds": round(time.perf_counter() - started, 6),
             "dtype": str(output.dtype),
             "shape": list(output.shape),
-            "finite": bool(torch.isfinite(output).all().item()),
+            "finite": finite,
         }
     except Exception as error:  # noqa: BLE001 - this is a compatibility probe
         return {
@@ -135,7 +136,14 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], bool]:
         )
 
     report["checks"] = checks
-    required = {"bf16_matmul", "sdpa_math", "flex_attention_compiled"}
+    required = {
+        "bf16_matmul",
+        "sdpa_math",
+        "sdpa_flash_attention",
+        "sdpa_efficient_attention",
+        "sdpa_cudnn_attention",
+        "flex_attention_compiled",
+    }
     passed_required = {check["name"] for check in checks if check.get("passed") is True}
     report["required_checks_passed"] = required <= passed_required
     return report, bool(report["required_checks_passed"])
