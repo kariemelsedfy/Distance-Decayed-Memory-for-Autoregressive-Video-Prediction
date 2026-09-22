@@ -19,9 +19,9 @@ export MASTER_ADDR="$master_addr"
 export MASTER_PORT="${DD_MEMORY_MASTER_PORT:-$((20000 + job_number % 20000))}"
 export WORLD_SIZE="$SLURM_NTASKS"
 export RANK="$SLURM_PROCID"
-# Slurm exposes one bound GPU per process, so its visible CUDA index is zero.
-export LOCAL_RANK=0
-export DD_MEMORY_NODE_LOCAL_RANK="$SLURM_LOCALID"
+# All GPUs of a node stay visible to every rank on it, so NCCL can reach a
+# peer's device; each rank claims the one matching its node-local index.
+export LOCAL_RANK="$SLURM_LOCALID"
 export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 export NCCL_DEBUG="${NCCL_DEBUG:-WARN}"
 export NCCL_SOCKET_IFNAME="${NCCL_SOCKET_IFNAME:-bond0}"

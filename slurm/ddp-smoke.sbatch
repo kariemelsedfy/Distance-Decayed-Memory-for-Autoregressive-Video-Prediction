@@ -3,7 +3,7 @@
 #SBATCH --partition=gpu
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --gpus-per-task=pro6000:1
+#SBATCH --gres=gpu:pro6000:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
 #SBATCH --time=00:10:00
@@ -38,8 +38,6 @@ git rev-parse HEAD > "$DD_MEMORY_RUN_DIR/git-sha.txt"
 launch=(
   --kill-on-bad-exit=1
   --ntasks="$SLURM_NTASKS"
-  --gpus-per-task=pro6000:1
-  --gpu-bind=single:1
 )
 
 srun "${launch[@]}" \

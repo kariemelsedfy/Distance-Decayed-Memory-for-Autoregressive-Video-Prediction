@@ -48,21 +48,26 @@ def run(args: argparse.Namespace) -> bool:
 
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is not available")
-    if torch.cuda.device_count() != 1:
+    # Every rank on a node sees every GPU of that node, so NCCL can open a
+    # peer's device for its shared-memory transport. Each rank owns the device
+    # matching its node-local rank.
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+    if local_rank >= torch.cuda.device_count():
         raise RuntimeError(
-            "Expected Slurm to expose exactly one GPU to each rank; "
-            f"found {torch.cuda.device_count()}"
+            f"Local rank {local_rank} has no GPU; this node exposes "
+            f"{torch.cuda.device_count()}"
         )
 
     distributed.init_process_group(backend="nccl", timeout=dt.timedelta(seconds=180))
     rank = distributed.get_rank()
     world_size = distributed.get_world_size()
-    torch.cuda.set_device(0)
-    device = torch.device("cuda", 0)
+    torch.cuda.set_device(local_rank)
+    device = torch.device("cuda", local_rank)
 
     rank_info = {
         "rank": rank,
         "hostname": socket.gethostname(),
+        "local_rank": local_rank,
         "slurm_local_id": int(os.environ.get("SLURM_LOCALID", "0")),
         "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES", ""),
         "device_name": torch.cuda.get_device_name(device),
@@ -72,7 +77,7 @@ def run(args: argparse.Namespace) -> bool:
 
     torch.manual_seed(20260922)
     model = torch.nn.Linear(32, 16, bias=True, device=device)
-    wrapped = DistributedDataParallel(model, device_ids=[0])
+    wrapped = DistributedDataParallel(model, device_ids=[local_rank])
     optimizer = torch.optim.SGD(wrapped.parameters(), lr=0.01)
     generator = torch.Generator(device=device).manual_seed(1000 + rank)
     inputs = torch.randn((8, 32), generator=generator, device=device)
