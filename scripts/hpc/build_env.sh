@@ -49,8 +49,8 @@ printf -v quoted_workdir '%q' "$remote_workdir"
 
 read -r -d '' build_script <<EOF || true
 #!/usr/bin/env bash
+source /etc/profile
 set -euo pipefail
-source /etc/profile >/dev/null 2>&1 || true
 module load miniconda3
 env_path="/mnt/hpc/tmp/\$USER/envs/$env_name"
 workdir=$quoted_workdir
