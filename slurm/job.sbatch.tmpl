@@ -1,0 +1,47 @@
+#!/bin/bash
+#SBATCH --job-name={job_name}
+#SBATCH --partition={partition}
+#SBATCH --gres={gres}
+#SBATCH --cpus-per-task={cpus}
+#SBATCH --mem={memory}
+#SBATCH --time={wall_time}
+#SBATCH --output=/mnt/hpc/tmp/%u/{project}/logs/%x-%j.out
+#SBATCH --requeue
+#SBATCH --signal=B:USR1@300
+
+set -euo pipefail
+
+export TORCH_HOME=/mnt/hpc/tmp/$USER/model_cache/torch
+export HF_HOME=/mnt/hpc/tmp/$USER/model_cache/hf
+export HUGGINGFACE_HUB_CACHE=/mnt/hpc/tmp/$USER/model_cache/hf
+export PIP_CACHE_DIR=/mnt/hpc/tmp/$USER/cache/pip
+export XDG_CACHE_HOME=/mnt/hpc/tmp/$USER/cache
+export DD_MEMORY_RUN_ID={run_id}
+export DD_MEMORY_RUN_DIR=/mnt/hpc/tmp/$USER/dd-memory/runs/{run_id}
+
+mkdir -p "$DD_MEMORY_RUN_DIR" /mnt/hpc/tmp/$USER/dd-memory/logs
+cd {workdir}
+
+echo "GPU inventory:"
+nvidia-smi --query-gpu=name,compute_mode --format=csv
+echo "Git SHA: $(git rev-parse HEAD)"
+echo "Resolved config ({config}):"
+sed -n '1,240p' {config}
+cp {config} "$DD_MEMORY_RUN_DIR/resolved-config.yaml"
+git rev-parse HEAD > "$DD_MEMORY_RUN_DIR/git-sha.txt"
+
+child_pid=""
+handle_preemption() {{
+  echo "USR1 received; asking the training process to checkpoint."
+  if [[ -n "$child_pid" ]] && kill -0 "$child_pid" 2>/dev/null; then
+    kill -USR1 "$child_pid"
+    wait "$child_pid" || true
+  fi
+  scontrol requeue "$SLURM_JOB_ID"
+  exit 0
+}}
+trap handle_preemption USR1
+
+{command} &
+child_pid=$!
+wait "$child_pid"
