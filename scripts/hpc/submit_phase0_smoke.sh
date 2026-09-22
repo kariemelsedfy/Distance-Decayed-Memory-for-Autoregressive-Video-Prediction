@@ -89,7 +89,7 @@ sbatch --parsable \
   --cpus-per-task=4 \
   --mem=16G \
   --gpus-per-task=pro6000:1 \
-  --export=ALL,DD_MEMORY_CHECKOUT=\"\$checkout\",DD_MEMORY_RUN_ID=$quoted_run_id \
+  --export=ALL,DD_MEMORY_CHECKOUT=\$checkout,DD_MEMORY_RUN_ID=$quoted_run_id \
   $allocation \
   $quoted_batch
 EOF
