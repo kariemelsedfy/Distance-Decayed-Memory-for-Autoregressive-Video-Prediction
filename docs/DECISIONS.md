@@ -53,3 +53,24 @@ future work does not silently change experimental meaning.
   must be measured in the A2 pilot before the sweep is launched. Stopping the
   sweep early still yields the headline result, because the protected core runs
   first.
+
+## D-010 — One cell mechanism for every memory policy
+
+- **Status:** accepted (2026-09-23); RELIC pattern marked *(verify)*
+- **Decision:** All policies share one mechanism (`src/distance_decayed_memory/memory/`):
+  a frame enters as 16×16 pre-RoPE tokens; each aging step averages adjacent
+  pairs (rows, then columns, down to one token per frame, then temporally
+  aligned pairs of frames), so a level-ℓ token is the exact mean of `2**ℓ`
+  original tokens and cells never become finer. Policies differ only in the
+  target level at distance `d` (measured from a block's newest frame), and a
+  shared budget step coarsens or drops the oldest blocks if needed.
+  `decay_continuous` fits `ρ0` so its steady state uses 97% of the budget
+  (or keeps everything when that fits). `relic_discrete` keeps a window plus
+  a repeating, distance-independent per-frame pattern of 1×/4×/2×/4× spatial
+  downsampling on every `k`-th older frame, `k` chosen to fit the budget; the
+  pattern must be checked against the RELIC paper *(verify)*. `decay_content`
+  divides distance by a clipped novelty ratio of each frame's mean key.
+- **Consequence:** Continuous decay is realized as many factor-of-two steps
+  whose positions follow the continuous curve, rather than arbitrary
+  fractional pooling; this keeps every cell an exact average and makes the
+  comparison differ only in allocation, not in pooling arithmetic.
