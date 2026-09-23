@@ -129,6 +129,13 @@ HPC home remains at its 25,600 MB hard limit; keep everything on scratch.
 
 ## Running jobs
 
-None. Completed today: pilot `68357`–`68359`, environment build `68369`, A1
-smoke `68374`, A2 smoke `68377`. Failed or cancelled attempts are explained in
-`docs/EXPERIMENTS.md`.
+Submitted 2026-09-23 ~15:47 UTC from checkout `eda4394` (owner-approved):
+
+- Data (CPU, `main`): train `68388` → finalize `68389`; val `68390` →
+  `68391`; test `68493` → `68494` (setup `68387`). Expected about 4.5 h.
+- A1 size check (GPU): `68544` S and `68545` M on `mixed`, `68546` L on `gpu`,
+  1 GPU each, 4,000 steps; start automatically after `68389` and `68391`.
+  **Report to the owner before the full A1 run.**
+
+After the test split finalizes, record its manifest SHA-256 in
+`docs/DATASETS.md` (frozen).
