@@ -4,7 +4,7 @@
 **Active phase:** Phase 0 — foundations
 **Active scope:** Track A only; Track B is deferred.
 **Active branch:** `phase0/memory-maze-headless`
-**PR:** draft PR for issue #8 pending creation
+**PR:** #21 (draft; issue #8)
 
 ## Done
 
@@ -68,8 +68,7 @@
 
 ## In progress
 
-- Issue #8 implementation and evidence are on
-  `phase0/memory-maze-headless`; open the draft PR and wait for CI.
+- PR #21 covers issue #8; wait for CI, then mark it ready for review.
 
 ## Next
 
