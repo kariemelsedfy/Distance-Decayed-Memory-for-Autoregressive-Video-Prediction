@@ -105,3 +105,18 @@ future work does not silently change experimental meaning.
   whose positions follow the continuous curve, rather than arbitrary
   fractional pooling; this keeps every cell an exact average and makes the
   comparison differ only in allocation, not in pooling arithmetic.
+
+## D-011 — A shared full-fidelity local window of two chunks
+
+- **Status:** accepted (2026-09-23)
+- **Decision:** The two most recent chunks (8 frames) are kept at full
+  fidelity outside every policy's budget, identically for all policies, in A2
+  training and at inference (`StreamingCache`). A2 recomputes those two
+  chunks with gradients in the same forward pass as the noisy target chunk,
+  which realizes D-004's two-chunk gradient window at the cost of one pass per
+  step. The first two chunks of each episode are context only.
+- **Consequence:** A policy's budget is its cache *beyond* the last 8 frames,
+  so every policy effectively sees 8 more recent frames than its budget alone
+  (for example, `window` at B-low sees 16 frames). The comparison stays fair
+  because the local window is identical for all policies, and training and
+  inference read the same cache structure (sanity check 6).
