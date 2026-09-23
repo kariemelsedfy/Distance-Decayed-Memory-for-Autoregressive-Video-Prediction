@@ -127,19 +127,38 @@ class ModelCache:
     valid: torch.Tensor
 
     @classmethod
-    def from_policies(cls, policies, dtype=None, device=None) -> ModelCache:
-        """Stack per-episode ``MemoryPolicy.kv()`` results; pad with invalid slots."""
-        parts = [policy.kv() for policy in policies]
-        length = max(part[0].shape[-2] for part in parts)
-        layers, heads, _, dim = parts[0][0].shape
-        dtype = dtype or parts[0][0].dtype
+    def from_policies(cls, policies, dtype=None, device=None) -> ModelCache | None:
+        """Stack per-episode ``MemoryPolicy.kv()`` results; pad with invalid slots.
+
+        Empty policies contribute only invalid slots; returns ``None`` when
+        every policy is empty.
+        """
+        return cls.from_parts(
+            [policy.kv() if policy.blocks else None for policy in policies],
+            dtype,
+            device,
+        )
+
+    @classmethod
+    def from_parts(cls, parts, dtype=None, device=None) -> ModelCache | None:
+        """Batch ``(k, v, pos, weight)`` tuples (``None`` for an empty cache)."""
+        present = [part for part in parts if part is not None]
+        if not present:
+            return None
+        length = max(part[0].shape[-2] for part in present)
+        layers, heads, _, dim = present[0][0].shape
+        dtype = dtype or present[0][0].dtype
+        device = device or present[0][0].device
         batch = len(parts)
         k = torch.zeros(batch, layers, heads, length, dim, dtype=dtype, device=device)
         v = torch.zeros_like(k)
         pos = torch.zeros(batch, length, 3, dtype=torch.float64, device=device)
         weight = torch.ones(batch, length, dtype=torch.float64, device=device)
         valid = torch.zeros(batch, length, dtype=torch.bool, device=device)
-        for index, (pk, pv, ppos, pweight) in enumerate(parts):
+        for index, part in enumerate(parts):
+            if part is None:
+                continue
+            pk, pv, ppos, pweight = part
             n = pk.shape[-2]
             k[index, ..., :n, :] = pk.to(k)
             v[index, ..., :n, :] = pv.to(v)
