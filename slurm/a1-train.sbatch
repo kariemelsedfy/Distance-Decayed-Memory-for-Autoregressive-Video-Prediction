@@ -22,7 +22,7 @@ set -euo pipefail
 : "${DD_MEMORY_CHECKOUT:?}" "${DD_MEMORY_RUN_ID:?}" "${DD_A1_CONFIG:?}"
 : "${DD_TRAIN_SPLIT:?}" "${DD_VAL_SPLIT:?}"
 
-env_path="/mnt/hpc/tmp/$USER/envs/dd-memory"
+env_path="/mnt/hpc/tmp/$USER/envs/${DD_MEMORY_ENV:-dd-memory-gpu}"
 run_dir="/mnt/hpc/tmp/$USER/dd-memory/runs/$DD_MEMORY_RUN_ID"
 export PIP_CACHE_DIR="/mnt/hpc/tmp/$USER/cache/pip"
 export XDG_CACHE_HOME="/mnt/hpc/tmp/$USER/cache"
@@ -30,8 +30,8 @@ export TORCHINDUCTOR_CACHE_DIR="/mnt/hpc/tmp/$USER/cache/inductor"
 export TRITON_CACHE_DIR="/mnt/hpc/tmp/$USER/cache/triton"
 export TMPDIR="/mnt/hpc/tmp/$USER/tmp"
 export PYTHONNOUSERSITE=1
-# The environment holds an editable install of an older checkout; this run's
-# checkout must win (checked below).
+# The environment holds dependencies only; the code comes from this checkout
+# (checked below).
 export PYTHONPATH="$DD_MEMORY_CHECKOUT/src"
 export DD_MEMORY_GIT_SHA
 DD_MEMORY_GIT_SHA=$(git -C "$DD_MEMORY_CHECKOUT" rev-parse HEAD)

@@ -13,9 +13,11 @@ usage() {
   cat <<'EOF'
 Usage: scripts/hpc/build_env.sh [options] --workdir REMOTE_PATH
 
-Creates/updates a conda environment in scratch, installs a PyTorch cu128 build
-and the checked-out project, then writes pip freeze under environment/. The
-build itself runs as a CPU job on the main partition, never on the login node.
+Creates/updates a conda environment in scratch with copied (not hard-linked)
+files, installs a PyTorch cu128 build and the project's dependencies (not the
+project itself: jobs put their checkout's src/ on PYTHONPATH), verifies it has
+no broken library links, and writes pip freeze under environment/. The build
+runs as a CPU job on the main partition, never on the login node.
 
 Options:
   --name NAME       Environment name (default: dd-memory)
@@ -62,11 +64,21 @@ export TMPDIR="/mnt/hpc/tmp/\$USER/tmp"
 export PYTHONNOUSERSITE=1
 mkdir -p "\$CONDA_ENVS_PATH" "\$CONDA_PKGS_DIRS" "\$PIP_CACHE_DIR" "\$XDG_CACHE_HOME" "\$TMPDIR"
 if [[ ! -x "\$env_path/bin/python" ]]; then
-  conda create -y -p "\$env_path" python=$python_version pip
+  # --copy: environments built from hard links lost library files on
+  # 2026-09-23 (dangling libbz2/libffi/libstdc++ links); copies are independent.
+  conda create -y --copy -p "\$env_path" python=$python_version pip
 fi
 "\$env_path/bin/python" -m pip install --upgrade pip
 "\$env_path/bin/python" -m pip install torch --index-url https://download.pytorch.org/whl/cu128
-"\$env_path/bin/python" -m pip install -e "\${workdir}[dev]"
+"\$env_path/bin/python" -m pip install "\${workdir}[dev,figures]"
+"\$env_path/bin/python" -m pip uninstall -y distance-decayed-memory
+broken=\$(find "\$env_path" -xtype l | head -20)
+if [[ -n "\$broken" ]]; then
+  echo "Broken links in \$env_path:" >&2
+  echo "\$broken" >&2
+  exit 1
+fi
+"\$env_path/bin/python" -c 'import bz2, ctypes, lzma, sqlite3, PIL, numpy, torch, torch._functorch.partitioners; print("imports ok")'
 mkdir -p "\$workdir/environment"
 "\$env_path/bin/python" -m pip freeze > "\$workdir/environment/hpc-$env_name.txt"
 "\$env_path/bin/python" -c 'import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())'
