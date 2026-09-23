@@ -55,6 +55,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup-steps", type=int, default=200)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--expected-renderer", choices=("egl", "osmesa"), default="egl")
     parser.add_argument("--output", required=True, type=pathlib.Path)
     args = parser.parse_args()
     if args.steps < 1 or args.warmup_steps < 0 or args.repeats < 1:
@@ -114,18 +115,34 @@ def reset_if_last(env: Any, timestep: Any) -> tuple[Any, int]:
     return timestep, 0
 
 
+def opengl_strings() -> dict[str, str]:
+    from OpenGL import GL
+
+    names = {
+        "vendor": GL.GL_VENDOR,
+        "renderer": GL.GL_RENDERER,
+        "version": GL.GL_VERSION,
+    }
+    values = {}
+    for name, enum in names.items():
+        raw = GL.glGetString(enum)
+        values[name] = raw.decode("utf-8", errors="replace") if raw else "unavailable"
+    return values
+
+
 def main() -> int:
     args = parse_args()
     backend = os.environ.get("MUJOCO_GL")
-    if backend != "osmesa":
+    if backend != args.expected_renderer:
         raise SystemExit(
-            "Set MUJOCO_GL=osmesa before starting the process; "
+            f"Set MUJOCO_GL={args.expected_renderer} before starting the process; "
             f"got {backend!r}. The backend is selected at import time."
         )
     pyopengl_backend = os.environ.get("PYOPENGL_PLATFORM")
-    if pyopengl_backend not in (None, "osmesa"):
+    if pyopengl_backend not in (None, args.expected_renderer):
         raise SystemExit(
-            "PYOPENGL_PLATFORM conflicts with OSMesa: " f"{pyopengl_backend!r}"
+            "PYOPENGL_PLATFORM conflicts with requested renderer: "
+            f"{pyopengl_backend!r}"
         )
 
     import memory_maze  # noqa: F401 -- import establishes the selected renderer
@@ -194,6 +211,10 @@ def main() -> int:
             "renderer": {
                 "mujoco_gl": backend,
                 "pyopengl_platform": os.environ.get("PYOPENGL_PLATFORM", "unset"),
+                "libgl_always_software": os.environ.get(
+                    "LIBGL_ALWAYS_SOFTWARE", "unset"
+                ),
+                "opengl": opengl_strings(),
                 "cpu_threads": {
                     name: os.environ.get(name, "unset")
                     for name in (

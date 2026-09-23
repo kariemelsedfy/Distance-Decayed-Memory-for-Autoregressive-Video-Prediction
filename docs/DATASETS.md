@@ -15,7 +15,8 @@ No datasets have been downloaded or generated.
   with every generated split; confirm any publication-specific asset credit
   before redistributing rendered frames.
 - **Pinned environment:** `memory-maze==1.0.3`, `dm-control==1.0.47`,
-  `mujoco==3.14.0`, and `gym==0.26.2`; CPU rendering uses OSMesa.
+  `mujoco==3.14.0`, and `gym==0.26.2`; the CPU renderer is recorded by the
+  environment probe.
 - **Cluster location:** planned under `/mnt/hpc/tmp/$USER/dd-memory/data/memmaze9/`.
 - **Integrity:** freeze the final test manifest and record its SHA-256 before final evaluation.
 

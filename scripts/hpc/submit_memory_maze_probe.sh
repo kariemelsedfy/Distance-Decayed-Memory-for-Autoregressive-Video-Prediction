@@ -10,7 +10,7 @@ usage() {
 Usage: scripts/hpc/submit_memory_maze_probe.sh --workdir REMOTE_PATH [options]
 
 Installs the pinned Memory Maze stack into a scratch conda environment and
-runs the one-core OSMesa probe on the CPU-only main partition.
+runs the one-core software-EGL probe on the CPU-only main partition.
 
 Options:
   --time HH:MM:SS   Wall time, at most 00:30:00 (default: 00:30:00)
