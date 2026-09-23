@@ -23,7 +23,7 @@ find . -maxdepth 4 -type f \( -name 'metrics*' -o -name '*.csv' -o -name '*.json
   | tar --null -czf "\$archive" --files-from=-
 printf '%s\n' "\$archive"
 EOF
-remote_archive=$("$script_dir/remote.sh" "$remote_command" | tail -n 1)
+remote_archive=$("$script_dir/remote.sh" "$remote_command" | tr -d '\r' | tail -n 1)
 
 set -a
 # shellcheck disable=SC1090
