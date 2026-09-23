@@ -63,6 +63,19 @@ The generator produces episodes in which **the agent deliberately returns to ear
 4. Mix in natural behaviour: random pauses, detours, partial returns, and episodes with **no scripted revisit** (about 30%). This stops the model from learning "a return always comes after X".
 5. Navigation uses A* over grid cells plus a simple turn-then-move controller on the discrete actions. Add small action noise (about 5%) so trajectories aren't perfectly robotic.
 
+**Implemented (issue #9).** `src/distance_decayed_memory/data/navigation.py`
+(A*, closed-loop controller), `revisit_script.py` (the planner), and
+`scripts/data/generate_revisit_episodes.py` (writer plus previews). Measured
+Memory Maze dynamics at 4 Hz: one turn command from rest rotates about 17–18°
+once momentum decays, and forward motion reaches 0.25 cell/step after about
+three steps, coasting about 0.18 cell after release. The controller therefore
+aligns heading to within 10° (15° fallback after six alignment turns). In a
+20-episode local check (seeds 0–19, 40,960 frames), 81 returns completed, all within
+0.20 cell and 7.9° of the anchor pose, with a median arrival 3 frames after
+the target. Realized gaps covered 16–2,047 frames, but the `[16, 32)` bucket
+was thin (3 of 81); the A0 pilot must confirm per-bucket coverage, counting
+natural revisits from the detector as well. Conventions are in `D-008`.
+
 Target episode length: **2,048 frames** for training and **4,096 frames** for evaluation episodes. The longer evaluation episodes test whether memory generalizes past the training length.
 
 ### 3.3 Revisit detection for evaluation (independent of the script)
