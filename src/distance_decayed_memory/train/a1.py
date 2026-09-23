@@ -74,6 +74,7 @@ class A1Config:
     noise_schedule: str = "logit_normal"
     precision: str = "bf16"
     attention: str = "flex"
+    activation_checkpointing: bool = False
     compile: bool = False
     seed: int = 0
     num_workers: int = 6
@@ -250,6 +251,7 @@ def train(config: A1Config) -> int:
 
     model = PixelDiT(model_config).to(device)
     model.attention_backend = config.attention if device.type == "cuda" else "sdpa"
+    model.activation_checkpointing = config.activation_checkpointing
     ema = copy.deepcopy(model).requires_grad_(False)
     optimizer = torch.optim.AdamW(
         model.parameters(),

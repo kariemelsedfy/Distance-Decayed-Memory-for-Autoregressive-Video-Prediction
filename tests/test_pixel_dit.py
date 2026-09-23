@@ -216,3 +216,14 @@ def test_flex_block_mask_matches_dense_mask() -> None:
         model.attention_backend = "flex"
         flex = model(x.float(), levels.float(), prev)
     torch.testing.assert_close(flex, dense, atol=1e-5, rtol=1e-4)
+
+
+def test_activation_checkpointing_preserves_gradients() -> None:
+    x, prev, levels = clip()
+    grads = []
+    for checkpointing in (False, True):
+        model = tiny_model().train()
+        model.activation_checkpointing = checkpointing
+        model(x, levels, prev).square().mean().backward()
+        grads.append(torch.cat([p.grad.flatten() for p in model.parameters()]))
+    torch.testing.assert_close(grads[0], grads[1])

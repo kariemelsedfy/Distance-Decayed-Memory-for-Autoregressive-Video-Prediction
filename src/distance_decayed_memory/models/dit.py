@@ -27,9 +27,10 @@ from dataclasses import dataclass
 
 import torch
 import torch.nn.functional as F
+import torch.utils.checkpoint
 from torch import nn
 
-from distance_decayed_memory.memory.rope import apply_rope
+from distance_decayed_memory.memory.rope import rope_tables, rotate
 
 _compiled_flex = None
 
@@ -256,6 +257,7 @@ class Block(nn.Module):
         cache: tuple | None,
         block_mask=None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """``positions`` and the cache's positions are precomputed ``(cos, sin)``."""
         b, n, width = x.shape
         modulation = self.modulation(condition).repeat_interleave(
             self.config.tokens_per_frame, dim=1
@@ -265,12 +267,12 @@ class Block(nn.Module):
         q, k, v = self.qkv(h).reshape(b, n, 3, self.heads, -1).permute(2, 0, 3, 1, 4)
         q, k = self.q_norm(q), self.k_norm(k)
         fresh_k, fresh_v = k, v
-        q_rot = apply_rope(q, positions[:, None], self.config.rope_base)
-        k_rot = apply_rope(k, positions[:, None], self.config.rope_base)
+        q_rot = rotate(q, *positions)
+        k_rot = rotate(k, *positions)
         bias = None
         if cache is not None:
-            cache_k, cache_v, cache_pos, cache_bias = cache
-            cache_rot = apply_rope(cache_k, cache_pos[:, None], self.config.rope_base)
+            cache_k, cache_v, cache_tables, cache_bias = cache
+            cache_rot = rotate(cache_k, *cache_tables)
             k_rot = torch.cat((cache_rot.to(k_rot), k_rot), dim=-2)
             v = torch.cat((cache_v.to(v), v), dim=-2)
             bias = cache_bias
@@ -319,6 +321,8 @@ class PixelDiT(nn.Module):
             nn.init.zeros_(layer.bias)
         # "sdpa" (dense boolean mask) or "flex" (block mask; clip mode only).
         self.attention_backend = "sdpa"
+        # Recompute each block in the backward pass to save activation memory.
+        self.activation_checkpointing = False
         self._block_masks: dict = {}
 
     def forward(
@@ -350,7 +354,13 @@ class PixelDiT(nn.Module):
         condition = self.time_embed(
             timestep_embedding(noise_level, 256).to(dtype)
         ) + self.action_embed(prev_actions)
-        positions = token_positions(start, t, config.grid)
+        table_dtype = torch.float64 if x.dtype == torch.float64 else torch.float32
+        positions = rope_tables(
+            token_positions(start, t, config.grid)[:, None],
+            config.head_dim,
+            config.rope_base,
+            table_dtype,
+        )
         mask = block_mask = None
         if t > config.chunk_frames:
             if self.attention_backend == "flex" and cache is None:
@@ -364,8 +374,11 @@ class PixelDiT(nn.Module):
                 mask = chunk_causal_mask(
                     t, config.tokens_per_frame, config.chunk_frames, frames.device
                 )
-        cache_bias = None
+        cache_bias = cache_tables = None
         if cache is not None:
+            cache_tables = rope_tables(
+                cache.pos[:, None], config.head_dim, config.rope_base, table_dtype
+            )
             cache_bias = torch.where(
                 cache.valid,
                 (
@@ -382,10 +395,22 @@ class PixelDiT(nn.Module):
                 layer_cache = (
                     cache.k[:, index],
                     cache.v[:, index],
-                    cache.pos,
+                    cache_tables,
                     cache_bias,
                 )
-            x, k, v = block(x, condition, positions, mask, layer_cache, block_mask)
+            if self.activation_checkpointing and self.training:
+                x, k, v = torch.utils.checkpoint.checkpoint(
+                    block,
+                    x,
+                    condition,
+                    positions,
+                    mask,
+                    layer_cache,
+                    block_mask,
+                    use_reentrant=False,
+                )
+            else:
+                x, k, v = block(x, condition, positions, mask, layer_cache, block_mask)
             if return_kv:
                 keys.append(k)
                 values.append(v)

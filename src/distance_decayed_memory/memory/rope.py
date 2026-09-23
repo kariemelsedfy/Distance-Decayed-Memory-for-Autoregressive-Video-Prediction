@@ -34,27 +34,47 @@ def rope_frequencies(
     ]
 
 
+def rope_tables(
+    positions: torch.Tensor,
+    head_dim: int,
+    base: float = 10_000.0,
+    dtype: torch.dtype = torch.float32,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """``(cos, sin)`` of shape ``[..., n, head_dim / 2]`` for ``positions[..., n, 3]``.
+
+    Angles are computed in float64 (time positions reach thousands of radians)
+    and the tables are returned in ``dtype``. Build them once per forward pass
+    and reuse them across layers with :func:`rotate`.
+    """
+    if positions.shape[-1] != 3:
+        raise ValueError("positions must be [..., n, 3]")
+    angles = [
+        positions[..., axis].to(torch.float64)[..., None] * inverse
+        for axis, inverse in enumerate(
+            rope_frequencies(head_dim, base, positions.device)
+        )
+    ]
+    angle = torch.cat(angles, dim=-1)
+    return angle.cos().to(dtype), angle.sin().to(dtype)
+
+
+def rotate(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    """Apply precomputed RoPE tables to ``x[..., n, head_dim]`` (pairs 2i, 2i+1)."""
+    values = x.to(cos.dtype)
+    even, odd = values[..., 0::2], values[..., 1::2]
+    rotated = torch.stack((even * cos - odd * sin, even * sin + odd * cos), dim=-1)
+    return rotated.flatten(-2).to(x.dtype)
+
+
 def apply_rope(x: torch.Tensor, positions: torch.Tensor, base: float = 10_000.0):
     """Rotate ``x[..., n, head_dim]`` by ``positions[..., n, 3]`` (t, y, x).
 
     Positions may be any real values and may carry leading batch dimensions
-    that broadcast against ``x``'s (for example ``[batch, 1, n, 3]``).
-
-    Computed in float64 for the angles and returned in ``x``'s dtype.
+    that broadcast against ``x``'s (for example ``[batch, 1, n, 3]``). Tables
+    are float64 for float64 inputs and float32 otherwise.
     """
-    head_dim = x.shape[-1]
-    if positions.shape[-1] != 3 or positions.shape[-2] != x.shape[-2]:
+    if positions.shape[-2] != x.shape[-2]:
         raise ValueError("positions must be [..., n, 3] matching x's token axis")
-    pieces = []
-    start = 0
-    for axis, (size, inverse) in enumerate(
-        zip(axis_sizes(head_dim), rope_frequencies(head_dim, base, x.device))
-    ):
-        chunk = x[..., start : start + size].to(torch.float64)
-        start += size
-        angle = positions[..., axis].to(torch.float64)[..., None] * inverse
-        cos, sin = angle.cos(), angle.sin()
-        even, odd = chunk[..., 0::2], chunk[..., 1::2]
-        rotated = torch.stack((even * cos - odd * sin, even * sin + odd * cos), -1)
-        pieces.append(rotated.flatten(-2))
-    return torch.cat(pieces, dim=-1).to(x.dtype)
+    dtype = torch.float64 if x.dtype == torch.float64 else torch.float32
+    cos, sin = rope_tables(positions, x.shape[-1], base, dtype)
+    return rotate(x, cos, sin)
