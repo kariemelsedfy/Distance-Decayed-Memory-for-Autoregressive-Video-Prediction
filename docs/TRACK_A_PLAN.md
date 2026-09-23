@@ -109,6 +109,15 @@ A frame-causal **diffusion transformer** working directly on pixels. No VAE is n
 | M | 16 | 768 | 12 | ~115M |
 | L | 24 | 1024 | 16 | ~300M |
 
+**Implemented (issue #13)** in `src/distance_decayed_memory/models/`. Measured
+parameter counts with per-block adaLN-Zero are S 57.7M, M 172.1M, L 456.9M;
+the attention and MLP trunk alone matches the table above, and the extra
+parameters only map each frame's (noise level, action) to modulation, which
+is computed once per frame. Heads are 64-dimensional, split 24/20/20 across
+(t, y, x) for RoPE. The streaming cache path reproduces the block-causal clip
+forward exactly (test). Attention uses dense-mask SDPA; switching A1 to
+FlexAttention block masks is left to the A1 trainer.
+
 **Default: M.** Go to L only if M is clearly under-fitting *and* the sweep still fits in the compute budget (§9).
 
 A useful fact: for M, a full-fidelity cache of a whole 4,096-frame episode is about 1M tokens × 16 layers × 2 × 768 × 2 bytes, roughly 50 GB. That **fits on one 96 GB card**, so the **full-cache oracle is runnable at every horizon in Track A.** The budget constraint in Track A is imposed deliberately to mirror what the large model would face (§6), and the oracle gives a true upper bound.
