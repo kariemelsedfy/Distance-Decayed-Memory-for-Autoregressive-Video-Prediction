@@ -287,3 +287,19 @@ def test_input_validation() -> None:
         p.append(k, v, torch.zeros(PER_FRAME, 3), 1)
     with pytest.raises(ValueError, match="unknown policy"):
         make_policy("nope")
+
+
+def test_rope_splits_model_head_dimensions_evenly() -> None:
+    from distance_decayed_memory.memory.rope import axis_sizes
+
+    assert axis_sizes(64) == (24, 20, 20)
+    assert axis_sizes(6) == (2, 2, 2)
+    q = torch.randn(2, 3, 5, 64, dtype=torch.float64)
+    k = torch.randn(2, 3, 5, 64, dtype=torch.float64)
+    pos = torch.rand(2, 1, 5, 3, dtype=torch.float64) * 100
+    shift = torch.tensor([3.5, -1.25, 7.0], dtype=torch.float64)
+    before = apply_rope(q, pos) @ apply_rope(k, pos).transpose(-1, -2)
+    after = apply_rope(q, pos + shift) @ apply_rope(k, pos + shift).transpose(-1, -2)
+    torch.testing.assert_close(before, after)
+    with pytest.raises(ValueError, match="even"):
+        axis_sizes(63)
