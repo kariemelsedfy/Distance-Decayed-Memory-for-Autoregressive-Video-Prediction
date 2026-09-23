@@ -18,6 +18,13 @@ import torch.nn.functional as F
 from distance_decayed_memory.models.dit import ModelCache, PixelDiT
 
 
+def unwrap(model) -> PixelDiT:
+    """The :class:`PixelDiT` inside DDP and/or ``torch.compile`` wrappers."""
+    while not isinstance(model, PixelDiT):
+        model = getattr(model, "module", None) or model._orig_mod
+    return model
+
+
 def to_model_range(frames_uint8: torch.Tensor) -> torch.Tensor:
     return frames_uint8.float() / 127.5 - 1.0
 
@@ -47,17 +54,22 @@ def chunk_noise_levels(
 
 
 def flow_matching_loss(
-    model: PixelDiT,
+    model,
     frames: torch.Tensor,
     prev_actions: torch.Tensor,
     frame_start: int | torch.Tensor = 0,
     schedule: str = "logit_normal",
     generator: torch.Generator | None = None,
 ) -> torch.Tensor:
-    """Mean squared velocity error on a clip ``[B, T, H, W, C]`` in ``[-1, 1]``."""
+    """Mean squared velocity error on a clip ``[B, T, H, W, C]`` in ``[-1, 1]``.
+
+    ``model`` may be wrapped (DDP, ``torch.compile``); its config is read from
+    the underlying :class:`PixelDiT`.
+    """
     b, t = frames.shape[:2]
+    config = unwrap(model).config
     levels = chunk_noise_levels(
-        b, t, model.config.chunk_frames, schedule, generator, frames.device
+        b, t, config.chunk_frames, schedule, generator, frames.device
     )
     noise = torch.randn(frames.shape, generator=generator, device=frames.device)
     tau = levels[..., None, None, None].to(frames)

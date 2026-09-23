@@ -31,6 +31,37 @@ from torch import nn
 
 from distance_decayed_memory.memory.rope import apply_rope
 
+_compiled_flex = None
+
+
+def flex_attention(q, k, v, block_mask):
+    """FlexAttention, compiled on CUDA (verified on sm_120 in Phase 0).
+
+    Elsewhere it runs eagerly, which is slow and forward-only on CPU; it exists
+    there so tests can check it against the dense-mask path.
+    """
+    global _compiled_flex
+    from torch.nn.attention.flex_attention import flex_attention as flex
+
+    if not q.is_cuda:
+        return flex(q, k, v, block_mask=block_mask)
+    if _compiled_flex is None:
+        _compiled_flex = torch.compile(flex, dynamic=False)
+    return _compiled_flex(q, k, v, block_mask=block_mask)
+
+
+def chunk_block_mask(frames: int, tokens_per_frame: int, chunk_frames: int, device):
+    """FlexAttention block mask equivalent to :func:`chunk_causal_mask`."""
+    from torch.nn.attention.flex_attention import create_block_mask
+
+    per_chunk = tokens_per_frame * chunk_frames
+    n = frames * tokens_per_frame
+
+    def causal_chunks(b, h, q_index, kv_index):
+        return q_index // per_chunk >= kv_index // per_chunk
+
+    return create_block_mask(causal_chunks, None, None, n, n, device=device)
+
 
 @dataclass(frozen=True)
 class DiTConfig:
@@ -204,6 +235,7 @@ class Block(nn.Module):
         positions: torch.Tensor,
         mask: torch.Tensor | None,
         cache: tuple | None,
+        block_mask=None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         b, n, width = x.shape
         modulation = self.modulation(condition).repeat_interleave(
@@ -238,7 +270,10 @@ class Block(nn.Module):
         elif bias is not None:
             zeros = torch.zeros(b, n, dtype=bias.dtype, device=bias.device)
             bias = torch.cat((bias, zeros), dim=-1).to(q.dtype)[:, None, None, :]
-        attended = F.scaled_dot_product_attention(q_rot, k_rot, v, attn_mask=bias)
+        if block_mask is not None and cache is None:
+            attended = flex_attention(q_rot, k_rot, v, block_mask)
+        else:
+            attended = F.scaled_dot_product_attention(q_rot, k_rot, v, attn_mask=bias)
         attended = attended.transpose(1, 2).reshape(b, n, width)
         x = x + gate1 * self.proj(attended)
         h = self.norm2(x) * (1 + scale2) + shift2
@@ -263,6 +298,9 @@ class PixelDiT(nn.Module):
         for layer in (self.final_modulation, self.head):
             nn.init.zeros_(layer.weight)
             nn.init.zeros_(layer.bias)
+        # "sdpa" (dense boolean mask) or "flex" (block mask; clip mode only).
+        self.attention_backend = "sdpa"
+        self._block_masks: dict = {}
 
     def forward(
         self,
@@ -294,11 +332,19 @@ class PixelDiT(nn.Module):
             timestep_embedding(noise_level, 256).to(dtype)
         ) + self.action_embed(prev_actions)
         positions = token_positions(start, t, config.grid)
-        mask = None
+        mask = block_mask = None
         if t > config.chunk_frames:
-            mask = chunk_causal_mask(
-                t, config.tokens_per_frame, config.chunk_frames, frames.device
-            )
+            if self.attention_backend == "flex" and cache is None:
+                key = (t, str(frames.device))
+                if key not in self._block_masks:
+                    self._block_masks[key] = chunk_block_mask(
+                        t, config.tokens_per_frame, config.chunk_frames, frames.device
+                    )
+                block_mask = self._block_masks[key]
+            else:
+                mask = chunk_causal_mask(
+                    t, config.tokens_per_frame, config.chunk_frames, frames.device
+                )
         cache_bias = None
         if cache is not None:
             cache_bias = torch.where(
@@ -320,7 +366,7 @@ class PixelDiT(nn.Module):
                     cache.pos,
                     cache_bias,
                 )
-            x, k, v = block(x, condition, positions, mask, layer_cache)
+            x, k, v = block(x, condition, positions, mask, layer_cache, block_mask)
             if return_kv:
                 keys.append(k)
                 values.append(v)
