@@ -1,10 +1,10 @@
 # Project status
 
-**Updated:** 2026-09-22
+**Updated:** 2026-09-23
 **Active phase:** Phase 0 — foundations
 **Active scope:** Track A only; Track B is deferred.
-**Active branch:** `phase0/ddp-requeue`
-**PR:** #20 (draft; issue #6)
+**Active branch:** `phase0/memory-maze-headless`
+**PR:** #21 (ready for review; issue #8)
 
 ## Done
 
@@ -56,27 +56,40 @@
 - Fixed three real defects found by those runs: literal quotes in the Slurm
   `--export` path, per-task GPU binding breaking NCCL's shared-memory transport,
   and a `SIGUSR1` handler registered after the torch import.
+- Merged PR #20 (closes issue #6), then recorded the four-concurrent-GPU plan
+  on the follow-up branch.
+- Installed the pinned Memory Maze stack in scratch and completed CPU job
+  `68321` on `main`. Headless EGL was forced to Mesa llvmpipe, and the verified
+  median was 23.85 rendered 64×64 frames/s on one core.
+- Confirmed the nine global observation keys, including binary 9×9
+  `maze_layout`, 2D `agent_pos`, and unit-vector `agent_dir`; confirmed all six
+  discrete actions and their order. Exact versions are in
+  `environment/hpc-memory-maze.txt`.
 
 ## In progress
 
-- PR #20 covers issue #6 and is ready to mark for review once CI is green.
+- PR #21 covers issue #8; CI is green and it is ready for owner review.
 
 ## Next
 
-1. **Owner decision:** Track A can use at most 2 pro6000 GPUs per user under the
-   current QOS. Either plan the training budget around 2 GPUs or ask HPC staff
-   for a raised limit or a reservation on `moose68`/`moose69`.
-2. Mark PR #20 ready, review, merge, and close issue #6.
-3. Move to the next Phase 0 item once #6 is merged; issue #7 (literature
-   refresh) remains independent.
+1. Merge the issue #8 PR, then start issue #9: scripted revisit trajectories,
+   A* navigation, and toy-grid tests.
+2. Continue through #10 (revisit detector), #11 (writer/loader), and #18 (pilot
+   split) to complete A0; the full split is not ready to launch yet.
+3. In parallel, issue #12 (`MemoryPolicy` library and tests) and issue #13
+   (pixel DiT, flow loss, sampler) need no cluster GPUs beyond short checks.
+4. Add a sweep runner (keeps four single-GPU slots full, auto-resumes) before
+   A2 — proposed as a new issue, not yet opened.
+5. Issue #7 (literature refresh) remains independent.
 
 ## Blockers
 
-- The 2-pro6000 per-user ceiling constrains every Track A scaling assumption
-  that expected up to 7 GPUs. Needs an owner decision (see Next, item 1).
-- HPC home remains at its 25,600 MB hard limit; keep everything on scratch.
+None. The GPU ceiling is now a recorded plan constraint (D-007), not a blocker.
+HPC home remains at its 25,600 MB hard limit; keep everything on scratch.
 
 ## Running jobs
 
-None. Jobs `68179`, `68222`, `68224`, and `68228` completed; `68180` was
-cancelled as unrunnable under the QOS cap.
+None. Memory Maze probe `68321` completed. Setup attempts `68314` and `68315`
+failed before the successful renderer configuration; diagnostic jobs
+`68316`–`68320` are also finished. Queue-policy probes `68310`–`68313` were
+cancelled after confirming four concurrent pro6000 GPUs.

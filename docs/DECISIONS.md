@@ -38,3 +38,18 @@ future work does not silently change experimental meaning.
 - **Status:** accepted (2026-09-22)
 - **Decision:** Give every policy equal tuning effort and freeze and hash the test split before final evaluation.
 - **Consequence:** The proposed policy cannot receive an unfair search advantage, and the final comparison remains auditable.
+
+## D-007 — Plan Track A around four concurrent GPUs
+
+- **Status:** accepted (2026-09-23)
+- **Decision:** Build the compute plan on the measured Slurm ceiling rather than
+  on the seven installed cards: at most 2 pro6000 GPUs in one job, and at most 4
+  concurrently per user (2 jobs on `mixed`, 2 on `gpu`). A1 becomes a 2-GPU DDP
+  run; the A2 sweep runs as single-GPU jobs, four at a time, in the staged
+  priority order of `TRACK_A_PLAN.md` §9.3. Do not request a raised QOS limit
+  for now.
+- **Consequence:** A2 plus evaluation is roughly 8-17 days of wall clock instead
+  of 5-10, so the sweep needs a queue runner with auto-resume, and per-run cost
+  must be measured in the A2 pilot before the sweep is launched. Stopping the
+  sweep early still yields the headline result, because the protected core runs
+  first.
