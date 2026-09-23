@@ -6,12 +6,12 @@
 #SBATCH --time=00:30:00
 #SBATCH --output=/mnt/hpc/tmp/%u/dd-memory/logs/%x-%j.out
 
+source /etc/profile
 set -euo pipefail
 
 : "${DD_MEMORY_CHECKOUT:?Set DD_MEMORY_CHECKOUT to the scratch checkout path}"
 : "${DD_MEMORY_RUN_ID:?Set DD_MEMORY_RUN_ID to the probe run ID}"
 
-source /etc/profile
 module load miniconda3
 
 env_path="/mnt/hpc/tmp/$USER/envs/dd-memory-memmaze"
