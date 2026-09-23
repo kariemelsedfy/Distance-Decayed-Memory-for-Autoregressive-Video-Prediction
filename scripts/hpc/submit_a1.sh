@@ -9,6 +9,8 @@ val_split=""
 gpus=2
 wall_time="12:00:00"
 name="a1"
+partition="mixed"
+after=""
 
 usage() {
   cat <<'EOF_USAGE'
@@ -23,6 +25,9 @@ Options:
   --gpus 1|2       GPUs on one node (default 2; the per-job QOS ceiling)
   --time HH:MM:SS  wall time per attempt (default 12:00:00)
   --name NAME      run-id prefix (default a1)
+  --partition P    mixed (default; 8 CPU and 128G per GPU task) or gpu
+                   (2 CPU and 20G per task; the gpu QOS caps 4 CPU/40G)
+  --after JOBID    start only after JOBID completes successfully
 EOF_USAGE
 }
 
@@ -35,6 +40,8 @@ while [[ $# -gt 0 ]]; do
     --gpus) gpus="${2:?}"; shift 2 ;;
     --time) wall_time="${2:?}"; shift 2 ;;
     --name) name="${2:?}"; shift 2 ;;
+    --partition) partition="${2:?}"; shift 2 ;;
+    --after) after="${2:?}"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -45,6 +52,11 @@ done
 [[ "$gpus" == 1 || "$gpus" == 2 ]] || { echo "--gpus must be 1 or 2" >&2; exit 2; }
 [[ "$wall_time" =~ ^[0-9]{1,2}:[0-5][0-9]:[0-5][0-9]$ ]] || { echo "invalid --time" >&2; exit 2; }
 [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "invalid --name" >&2; exit 2; }
+[[ "$partition" == mixed || "$partition" == gpu ]] || { echo "invalid --partition" >&2; exit 2; }
+[[ -z "$after" || "$after" =~ ^[0-9:]+$ ]] || { echo "invalid --after" >&2; exit 2; }
+resources="--partition=$partition"
+[[ "$partition" == gpu ]] && resources+=" --cpus-per-task=2 --mem=$((20 * gpus))G"
+[[ -n "$after" ]] && resources+=" --dependency=afterok:$after"
 
 absolute() {
   [[ "$1" == /* ]] && printf '%s' "$1" || printf '%s/%s' "$remote_checkout" "$1"
@@ -60,7 +72,7 @@ read -r -d '' remote_command <<EOF_REMOTE || true
 set -euo pipefail
 test -f $q_batch
 mkdir -p "/mnt/hpc/tmp/\$USER/dd-memory/logs"
-sbatch --parsable --time=$wall_time --ntasks=$gpus --gres=gpu:pro6000:$gpus \
+sbatch --parsable --time=$wall_time $resources --ntasks=$gpus --gres=gpu:pro6000:$gpus \
   --job-name=$name --export=$q_exports $q_batch
 EOF_REMOTE
 

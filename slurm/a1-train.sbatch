@@ -46,6 +46,12 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 "$python" -c 'import distance_decayed_memory as d, sys; p=d.__path__[0]; print("package:", p); sys.exit(0 if p.startswith(sys.argv[1]) else 1)' "$DD_MEMORY_CHECKOUT"
 echo "$DD_MEMORY_GIT_SHA" > "$run_dir/git-sha.txt"
 
+# Splits are read from scratch by default (A1 needs only ~6 MB/s); set
+# DD_STAGE_ROOT to copy them to node-local storage first.
+stage_args=()
+[[ -n "${DD_STAGE_ROOT:-}" ]] && stage_args=(--set "stage_root=$DD_STAGE_ROOT")
+workers=$(( ${SLURM_CPUS_PER_TASK:-4} > 3 ? SLURM_CPUS_PER_TASK - 2 : 1 ))
+
 child_pid=""
 requeue=0
 forward_usr1() {
@@ -63,8 +69,8 @@ srun --kill-on-bad-exit=1 \
     --set "run_dir=$run_dir" \
     --set "train_split=$DD_TRAIN_SPLIT" \
     --set "val_split=$DD_VAL_SPLIT" \
-    --set "stage_root=/tmp/$USER/dd-memory-stage" \
-    --set "num_workers=6" &
+    --set "num_workers=$workers" \
+    "${stage_args[@]}" &
 child_pid=$!
 wait "$child_pid"
 status=$?

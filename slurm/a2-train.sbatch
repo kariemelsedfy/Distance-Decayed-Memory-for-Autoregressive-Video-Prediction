@@ -46,6 +46,9 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 "$python" -c 'import distance_decayed_memory as d, sys; p=d.__path__[0]; print("package:", p); sys.exit(0 if p.startswith(sys.argv[1]) else 1)' "$DD_MEMORY_CHECKOUT"
 echo "$DD_MEMORY_GIT_SHA" > "$run_dir/git-sha.txt"
 
+stage_args=()
+[[ -n "${DD_STAGE_ROOT:-}" ]] && stage_args=(--set "stage_root=$DD_STAGE_ROOT")
+
 child_pid=""
 requeue=0
 forward_usr1() {
@@ -63,7 +66,7 @@ srun --kill-on-bad-exit=1 \
     --set "run_dir=$run_dir" \
     --set "train_split=$DD_TRAIN_SPLIT" \
     --set "base_checkpoint=$DD_BASE_CHECKPOINT" \
-    --set "stage_root=/tmp/$USER/dd-memory-stage" &
+    "${stage_args[@]}" &
 child_pid=$!
 wait "$child_pid"
 status=$?
