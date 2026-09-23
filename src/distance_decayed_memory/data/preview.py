@@ -119,6 +119,35 @@ def write_revisit_pairs(
     image.save(path)
 
 
+def write_pair_grid(
+    path: pathlib.Path,
+    rows: Sequence[tuple[str, Sequence[tuple[np.ndarray, np.ndarray, str]]]],
+) -> None:
+    """Rows of (earlier, later) frame pairs, each with a caption, under a row label."""
+    size = 64 * 2
+    pair_width = 2 * size + 6
+    caption_height = 14
+    label_width = 110
+    columns = max((len(pairs) for _, pairs in rows), default=1)
+    row_height = size + caption_height + 6
+    image = Image.new(
+        "RGB",
+        (label_width + columns * (pair_width + 10), max(len(rows), 1) * row_height),
+        (255, 255, 255),
+    )
+    draw = ImageDraw.Draw(image)
+    for row, (label, pairs) in enumerate(rows):
+        top = row * row_height
+        draw.text((4, top + size // 2), label, fill=(0, 0, 0))
+        for column, (earlier, later, caption) in enumerate(pairs):
+            left = label_width + column * (pair_width + 10)
+            for offset, frame in ((0, earlier), (size + 6, later)):
+                tile = Image.fromarray(frame).resize((size, size), Image.NEAREST)
+                image.paste(tile, (left + offset, top))
+            draw.text((left, top + size + 1), caption, fill=(0, 0, 0))
+    image.save(path)
+
+
 def write_gif(
     path: pathlib.Path,
     frames: np.ndarray,

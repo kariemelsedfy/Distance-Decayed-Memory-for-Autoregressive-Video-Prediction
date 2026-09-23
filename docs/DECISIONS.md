@@ -69,3 +69,18 @@ future work does not silently change experimental meaning.
   the private builder is tied to `memory-maze==1.0.3` and must be rechecked on
   any upgrade. Gap buckets come from what actually happened, not from the
   schedule.
+
+## D-009 — A revisit requires leaving the view first
+
+- **Status:** accepted (2026-09-23); tolerances to be confirmed at the A0 pilot
+- **Decision:** Refine `TRACK_A_PLAN.md` §3.3. The source of a revisit is the
+  most recent matching pose **before the current unbroken run of matching
+  frames**, not simply the most recent match older than `w_min`. Frames with
+  no such source are novel; sources fewer than 16 frames back are labelled
+  `recent`; the rest are revisits with gap `t − t'`. Every frame also records
+  `visit_age`, the length of that unbroken run. Tolerances stay at 0.3 cell
+  and 15°.
+- **Consequence:** Standing still or lingering can no longer create fake
+  short-gap revisits, so the `[16, 32)` bucket measures memory rather than
+  continuity. Evaluation can additionally drop frames with a large
+  `visit_age`.

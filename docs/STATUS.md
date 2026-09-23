@@ -3,8 +3,9 @@
 **Updated:** 2026-09-23
 **Active phase:** Track A milestone A0 — data generation
 **Active scope:** Track A only; Track B is deferred.
-**Active branch:** `phase2/revisit-trajectories`
-**PR:** #22 (draft; issue #9)
+**Active branch:** `phase2/revisit-detector` (stacked on
+`phase2/revisit-trajectories`)
+**PRs:** #22 (issue #9), then #23 (issue #10) stacked on it
 
 ## Done
 
@@ -73,16 +74,21 @@
   anchor/return pairs). 69 CPU tests pass. A local 20-episode run on the real
   environment completed 81 returns, all within 0.20 cell and 7.9° of the
   anchor pose. Conventions recorded as D-008.
+- Implemented issue #10: the pose-based revisit detector (refined so a pause
+  cannot count as a revisit, D-009), power-of-two gap buckets, and
+  `scripts/data/spot_check_revisits.py` (report, tolerance sweep, and a
+  pair grid). On 20 local episodes, 46% of frames are revisits and all seven
+  buckets up to 2,048 are populated. 84 CPU tests pass.
 
 ## In progress
 
-- Draft PR #22 for issue #9 on `phase2/revisit-trajectories`; awaiting CI and
+- Draft PR #22 (issue #9) and stacked draft PR #23 (issue #10); both await
   owner review.
 
 ## Next
 
-1. Merge the issue #9 PR, then start issue #10: the independent revisit
-   detector and gap bucketing, using the new previews for spot checks.
+1. Review and merge #22 (issue #9), then the issue #10 PR stacked on it.
+   Next code issue: #11 (sharded writer and loader), then the pilot (#18).
 2. Continue through #10 (revisit detector), #11 (writer/loader), and #18 (pilot
    split) to complete A0; the full split is not ready to launch yet.
 3. In parallel, issue #12 (`MemoryPolicy` library and tests) and issue #13
