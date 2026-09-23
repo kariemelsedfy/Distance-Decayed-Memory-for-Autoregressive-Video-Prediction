@@ -25,7 +25,10 @@ Memory Maze is a family of randomly generated 3D mazes (DeepMind, 2022) built sp
 
 - **Low resolution (64×64)**, so models are small and runs are fast.
 - **A new random layout every episode.** The model can't memorize the mazes. On a return, the only way to know what a corridor looks like is to have remembered it from earlier in the same episode.
-- **Known agent position and heading** (in the variant with extra observations *(verify: env id and observation keys, e.g. an "ExtraObs" variant exposing maze layout, agent position, and direction)*). That gives exact revisit detection and exact ground truth.
+- **Known agent position and heading.** The verified global-observation variant
+  exposes `maze_layout`, `agent_pos`, and the unit heading vector `agent_dir`,
+  along with the image and target fields. That gives exact revisit detection
+  and exact ground truth.
 - **Unlimited data.** We generate our own trajectories, so we control the revisit gaps precisely.
 
 Minecraft is the optional second environment (§11, milestone A5), only after the Memory Maze results are in.
@@ -36,10 +39,19 @@ Minecraft is the optional second environment (§11, milestone A5), only after th
 
 ### 3.1 Environment setup
 
-- Package: `memory-maze` (pip) on MuJoCo / dm_control *(verify version and install on the cluster)*.
-- Headless rendering: try `MUJOCO_GL=egl` on GPU nodes and `MUJOCO_GL=osmesa` on the CPU `main` partition. Generation should run on **`main` (CPU)** so it doesn't take GPUs. Measure frames/sec per core in the pilot.
+- Verified stack: `memory-maze==1.0.3`, `dm-control==1.0.47`,
+  `mujoco==3.14.0`, and `gym==0.26.2` on Python 3.11.16.
+- Headless CPU rendering on **`main`** uses EGL with
+  `LIBGL_ALWAYS_SOFTWARE=1`. Job `68321` confirmed Mesa llvmpipe rather than a
+  GPU. The CPU nodes do not provide OSMesa or Xvfb, and current conda-forge
+  `mesalib` does not include `libOSMesa`, so the planned OSMesa path is not
+  available. The one-core 64×64 benchmark measured a median **23.85 frames/s**
+  over three 2,000-frame repeats (range 23.43–23.97).
 - Start with the **9×9** maze size, then move to 15×15 for harder, longer-range runs.
-- Action space: discrete (no-op, forward, turn left/right, and forward+turn combinations) *(verify)*. Record the action index per frame.
+- Action space: six verified discrete actions in order: no-op, forward, left,
+  right, forward+left, and forward+right. Actions are inputs, not an observation
+  key; record the integer action index per frame. Convert `agent_dir` to a
+  scalar heading with `atan2(dir_y, dir_x)` when writing `pose.npy`.
 
 ### 3.2 Scripted revisit trajectories
 
@@ -225,9 +237,11 @@ Consequences that shape this plan:
 
 ### 9.2 Estimated cost
 
-- **Data generation:** CPU job arrays on `main`. 20k episodes x 2,048 frames is
-  about 41M frames. At an assumed ~500 frames/s per core with 32 cores, that's
-  roughly 45 minutes. Even if it's 10x slower, it's still under a day.
+- **Data generation:** CPU job arrays on `main`. 20k episodes × 2,048 frames is
+  about 41M frames. The A0 environment-only measurement is **23.85 frames/s per
+  core**, or about 480 core-hours before navigation and I/O. At ideal 32-core
+  scaling that is roughly 15 hours; measure end-to-end speed and scaling with
+  the 200-episode pilot before scheduling the full split.
 - **A1:** 1 run, M model, about 1-2 days on 7 cards in the original estimate;
   on 2 cards assume **3-5 days**, and re-estimate from the A0/A1 pilot.
 - **A2 runs:** single-GPU jobs. At an assumed 8-16 GPU-hours each, about 80 runs

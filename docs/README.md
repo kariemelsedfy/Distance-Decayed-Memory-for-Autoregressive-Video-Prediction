@@ -4,6 +4,8 @@
 - [TRACK_A_PLAN.md](TRACK_A_PLAN.md): authoritative active specification.
 - [proposal.md](proposal.md): original design proposal (Appendix C).
 - [hpc/bowdoin-hpc.md](hpc/bowdoin-hpc.md): Bowdoin cluster reference (Appendix D).
+- [hpc/memory-maze.md](hpc/memory-maze.md): verified CPU renderer, observations,
+  actions, throughput, and reproduction steps.
 - [STATUS.md](STATUS.md): current handoff, next actions, and blockers.
 - [DECISIONS.md](DECISIONS.md): append-only project decision record.
 - [EXPERIMENTS.md](EXPERIMENTS.md): reproducible run registry.

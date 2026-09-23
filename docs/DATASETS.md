@@ -15,8 +15,10 @@ No datasets have been downloaded or generated.
   with every generated split; confirm any publication-specific asset credit
   before redistributing rendered frames.
 - **Pinned environment:** `memory-maze==1.0.3`, `dm-control==1.0.47`,
-  `mujoco==3.14.0`, and `gym==0.26.2`; the CPU renderer is recorded by the
-  environment probe.
+  `mujoco==3.14.0`, and `gym==0.26.2`. On Bowdoin `main`, set
+  `MUJOCO_GL=egl`, `PYOPENGL_PLATFORM=egl`, and
+  `LIBGL_ALWAYS_SOFTWARE=1`; job `68321` identified the renderer as Mesa
+  llvmpipe. OSMesa and Xvfb are not installed on the CPU nodes.
 - **Cluster location:** planned under `/mnt/hpc/tmp/$USER/dd-memory/data/memmaze9/`.
 - **Integrity:** freeze the final test manifest and record its SHA-256 before final evaluation.
 
