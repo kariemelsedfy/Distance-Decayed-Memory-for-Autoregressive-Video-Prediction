@@ -13,6 +13,7 @@ Under Slurm the shard index defaults to ``SLURM_ARRAY_TASK_ID``. Set
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import pathlib
@@ -69,6 +70,12 @@ def main() -> int:
     if is_complete_shard(directory):
         print(f"{directory} is complete; nothing to do")
         return 0
+    args.split_dir.mkdir(parents=True, exist_ok=True)
+    lock = (args.split_dir / f".{directory.name}.lock").open("w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        raise SystemExit(f"another task is already writing {directory}") from None
     git = git_state(ROOT)
     first = args.first_seed + args.shard_index * args.episodes_per_shard
     seeds = list(range(first, first + args.episodes_per_shard))

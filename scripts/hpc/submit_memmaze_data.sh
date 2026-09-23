@@ -69,6 +69,12 @@ last_shard=$((shards - 1))
 read -r -d '' remote_command <<EOF_REMOTE || true
 set -euo pipefail
 test -f $q_batch
+active=\$(squeue -u "\$USER" -h -o '%j' | grep -E '^memmaze-($split|setup|final)\$' || true)
+if [[ -n "\$active" ]]; then
+  echo "Refusing to submit: Memory Maze data jobs are already queued:" >&2
+  echo "\$active" >&2
+  exit 3
+fi
 mkdir -p "/mnt/hpc/tmp/\$USER/dd-memory/logs"
 setup=\$(sbatch --parsable --time=00:30:00 --job-name=memmaze-setup \
   --export=$q_exports,DD_MEMORY_MODE=setup $q_batch)
@@ -81,7 +87,14 @@ final=\$(sbatch --parsable --time=01:00:00 --mem=16G --job-name=memmaze-final \
 printf '%s %s %s\n' "\$setup" "\$array" "\$final"
 EOF_REMOTE
 
-response=$("$script_dir/remote.sh" --timeout 60 "$remote_command")
+set +e
+response=$("$script_dir/remote.sh" --timeout 60 "$remote_command" 2>&1)
+remote_status=$?
+set -e
+if [[ $remote_status -ne 0 ]]; then
+  printf 'Remote submission failed (exit %s):\n%s\n' "$remote_status" "$response" >&2
+  exit "$remote_status"
+fi
 ids=$(printf '%s\n' "$response" | tr -d '\r' | tail -n 1)
 [[ "$ids" =~ ^[0-9]+\ [0-9]+\ [0-9]+$ ]] || {
   echo "Unexpected sbatch response: $response" >&2
