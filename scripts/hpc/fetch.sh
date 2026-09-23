@@ -19,7 +19,7 @@ archive="\$transfer_dir/$archive_name"
 [[ -d "\$run_dir" ]] || { echo "Run not found: $run_id" >&2; exit 1; }
 mkdir -p "\$transfer_dir"
 cd "\$run_dir"
-find . -maxdepth 4 -type f \( -name 'metrics*' -o -name '*.csv' -o -name '*.json' -o -name '*.png' -o -name '*.pdf' -o -name '*.gif' -o -name '*.mp4' \) -print0 \
+find . -maxdepth 4 -type f \( -name 'metrics*' -o -name '*.jsonl' -o -name '*.csv' -o -name '*.json' -o -name '*.png' -o -name '*.pdf' -o -name '*.gif' -o -name '*.mp4' \) -print0 \
   | tar --null -czf "\$archive" --files-from=-
 printf '%s\n' "\$archive"
 EOF
