@@ -5,7 +5,7 @@
 **Active scope:** Track A only; Track B is deferred.
 **Active branch:** `phase2/revisit-detector` (stacked on
 `phase2/revisit-trajectories`)
-**PRs:** #22 (issue #9), then the issue #10 PR stacked on it
+**PRs:** #22 (issue #9), then #23 (issue #10) stacked on it
 
 ## Done
 
@@ -82,7 +82,7 @@
 
 ## In progress
 
-- Draft PR #22 (issue #9) and the stacked issue #10 draft PR; both await
+- Draft PR #22 (issue #9) and stacked draft PR #23 (issue #10); both await
   owner review.
 
 ## Next
