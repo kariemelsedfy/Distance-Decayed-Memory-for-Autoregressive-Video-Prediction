@@ -1,11 +1,14 @@
 # Project status
 
 **Updated:** 2026-09-23
-**Active phase:** Track A milestone A0 — data generation
+**Active phase:** Track A — A0 check-in with the owner (pilot done); A1/A2
+trainers smoke-tested
 **Active scope:** Track A only; Track B is deferred.
-**Active branch:** `phase2/revisit-detector` (stacked on
-`phase2/revisit-trajectories`)
-**PRs:** #22 (issue #9), then #23 (issue #10) stacked on it
+**Active branch:** `phase2/a1-trainer` (merges the data stack and the model
+stack)
+**PRs (all draft, merge in this order):** #22 (issue #9) → #23 (#10) → #26
+(#11); #24 (#12) → #25 (#13); then the trainer PR for #14/#15 on
+`phase2/a1-trainer`.
 
 ## Done
 
@@ -79,23 +82,45 @@
   `scripts/data/spot_check_revisits.py` (report, tolerance sweep, and a
   pair grid). On 20 local episodes, 46% of frames are revisits and all seven
   buckets up to 2,048 are populated. 84 CPU tests pass.
+- Issue #11: sharded writer/loader with manifests, verification, and
+  node-local staging; chained CPU data jobs. **Pilot split** (jobs
+  `68357`–`68359`): 200 episodes × 2,048 frames, manifest SHA-256
+  `cd259cda…17a6`, 25.2 frames/s per core, 47% revisit frames, every gap bucket
+  16–2,047 populated, all 944 scripted returns detected.
+- Issue #12: all seven memory policies on one exact cell mechanism (D-010), 3D
+  RoPE at fractional positions, and the Gate 1 density figure.
+- Issue #13: pixel DiT (S/M/L = 58/172/457M parameters), flow matching,
+  sampler, and cached rollout; streaming with a full cache equals the clip
+  forward exactly (test).
+- Issue #14 (trainer part): auto-resuming A1 DDP trainer with EMA, validation,
+  samples, and requeue. **A1 smoke** `68374`: 511 frames/s on 2 GPUs at batch
+  4/GPU (61.5 GB/GPU); 100k steps ≈ 28 h.
+- Issue #15: streaming A2 trainer with a shared two-chunk local window
+  (D-011). **A2 smoke** `68377`: 1.8 steps/s on 1 GPU with 8 streams, budget
+  held; 20k steps ≈ 3 GPU-hours.
+- Rebuilt the GPU environment as `dd-memory-gpu` after both conda environments
+  lost library files (`docs/hpc/environments.md`); `build_env.sh` now copies
+  files and verifies links.
 
 ## In progress
 
-- Draft PR #22 (issue #9) and stacked draft PR #23 (issue #10); both await
-  owner review.
+- Owner review of the draft PRs and the A0 check-in (pilot results, spot-check
+  grid at `outputs/pilot/spot-check/spot_check.png` after fetching).
 
-## Next
+## Next (needs owner approval where marked)
 
-1. Review and merge #22 (issue #9), then the issue #10 PR stacked on it.
-   Next code issue: #11 (sharded writer and loader), then the pilot (#18).
-2. Continue through #10 (revisit detector), #11 (writer/loader), and #18 (pilot
-   split) to complete A0; the full split is not ready to launch yet.
-3. In parallel, issue #12 (`MemoryPolicy` library and tests) and issue #13
-   (pixel DiT, flow loss, sampler) need no cluster GPUs beyond short checks.
-4. Add a sweep runner (keeps four single-GPU slots full, auto-resumes) before
-   A2 — proposed as a new issue, not yet opened.
-5. Issue #7 (literature refresh) remains independent.
+1. **Approve** generating the full splits (#18): train 20,000 × 2,048 frames
+   (~450 core-hours, ≈4.5 h on `main`), val 500, test 1,000 × 4,096; freeze and
+   hash the test manifest.
+2. **Approve** the A1 size check (S/M/L, short runs on 2 GPUs) and then the A1
+   run (≈28 h for 100k steps on 2 GPUs).
+3. Issue #16 evaluation harness (P1/P2, LPIPS/PSNR/SSIM, bootstrap CIs,
+   headline plot) and #17 sanity-check suite — CPU work that can start now.
+4. A2 pilot with a trained A1 model: fix the A2 step count and re-measure
+   staleness (0.30–0.49 relative key change on the barely trained smoke model).
+   **Gate:** owner approves the A3 sweep.
+5. Verify RELIC's discrete pattern against the paper (D-010 *(verify)*); issue
+   #7 (literature refresh) is independent.
 
 ## Blockers
 
@@ -104,7 +129,6 @@ HPC home remains at its 25,600 MB hard limit; keep everything on scratch.
 
 ## Running jobs
 
-None. Memory Maze probe `68321` completed. Setup attempts `68314` and `68315`
-failed before the successful renderer configuration; diagnostic jobs
-`68316`–`68320` are also finished. Queue-policy probes `68310`–`68313` were
-cancelled after confirming four concurrent pro6000 GPUs.
+None. Completed today: pilot `68357`–`68359`, environment build `68369`, A1
+smoke `68374`, A2 smoke `68377`. Failed or cancelled attempts are explained in
+`docs/EXPERIMENTS.md`.
