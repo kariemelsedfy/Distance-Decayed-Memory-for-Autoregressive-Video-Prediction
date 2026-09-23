@@ -3,8 +3,8 @@
 **Updated:** 2026-09-22
 **Active phase:** Phase 0 — foundations
 **Active scope:** Track A only; Track B is deferred.
-**Active branch:** `phase0/blackwell-env`
-**PR:** #19 (ready for review; CI green)
+**Active branch:** `phase0/ddp-requeue`
+**PR:** #20 (draft; issue #6)
 
 ## Done
 
@@ -40,26 +40,43 @@
   compiled FlexAttention on `sm_120`.
 - Documented the result and its limits in `docs/hpc/blackwell-kernels.md` and
   updated the general Bowdoin HPC reference and experiment registry.
+- Merged PR #19 (closes issue #5).
+- On `phase0/ddp-requeue` (draft PR #20): added DDP/NCCL all-reduce and
+  checkpoint/resume probes, a distributed launcher, bounded Slurm scripts, and
+  `scripts/hpc/submit_phase0_smoke.sh` (modes `one`, `node`, `multi`, `requeue`).
+- Fixed the submit script passing literal quotes into `DD_MEMORY_CHECKOUT`
+  (cause of failed job `68178`); commit `8fe148f`.
+- Discovered the per-user QOS ceiling on both pro6000 partitions: **2 pro6000
+  GPUs per user**, and on `gpu` also 4 CPUs and 40G. Resized the smoke modes to
+  fit it and documented it in `docs/hpc/ddp-and-requeue.md`.
+- All four Phase 0 probes passed: `68179` (1 GPU), `68222` (2 GPUs on moose69,
+  24.3 GB/s), `68224` (1 GPU on each node, 11.0 GB/s over `bond0`), `68228`
+  (checkpoint at step 4, requeue, resume, finish). Every DDP parameter delta and
+  all-reduce error was exactly zero.
+- Fixed three real defects found by those runs: literal quotes in the Slurm
+  `--export` path, per-task GPU binding breaking NCCL's shared-memory transport,
+  and a `SIGUSR1` handler registered after the torch import.
 
 ## In progress
 
-- PR #19 is awaiting owner review and merge. Its local repository-wide checks
-  and GitHub `quality` workflow passed.
+- PR #20 covers issue #6 and is ready to mark for review once CI is green.
 
 ## Next
 
-1. Review and merge PR #19, which closes issue #5.
-2. Continue Phase 0 with issue #6: run the 1-GPU, per-node, and multi-node DDP
-   smoke tests, measure all-reduce bandwidth, and validate checkpoint/requeue.
-3. Address issue #7 (literature refresh) independently when useful.
+1. **Owner decision:** Track A can use at most 2 pro6000 GPUs per user under the
+   current QOS. Either plan the training budget around 2 GPUs or ask HPC staff
+   for a raised limit or a reservation on `moose68`/`moose69`.
+2. Mark PR #20 ready, review, merge, and close issue #6.
+3. Move to the next Phase 0 item once #6 is merged; issue #7 (literature
+   refresh) remains independent.
 
 ## Blockers
 
-No code blocker. The HPC home directory now reports 25,600 MB used against its
-25,600 MB hard limit. Keep caches, environments, logs, data, checkpoints, and
-temporary build files on scratch; do not add anything to home.
+- The 2-pro6000 per-user ceiling constrains every Track A scaling assumption
+  that expected up to 7 GPUs. Needs an owner decision (see Next, item 1).
+- HPC home remains at its 25,600 MB hard limit; keep everything on scratch.
 
 ## Running jobs
 
-None. Final environment refresh job `68170` and Blackwell probe `68171`
-completed; `scripts/hpc/status.sh` showed an empty personal queue afterward.
+None. Jobs `68179`, `68222`, `68224`, and `68228` completed; `68180` was
+cancelled as unrunnable under the QOS cap.

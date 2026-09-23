@@ -275,3 +275,6 @@ Wrap each stage as one script taking `--git-ref --partition --gres --cpus --mem
 | Fresh scratch clone fails immediately | gitignored deps (weights, external checkouts) absent | point env vars at persistent scratch copies |
 | `libcublasLt.so.11` not found (onnxruntime) | CUDA-provider mismatch on older cards | harmless; or pin CPU provider |
 | Job pends forever on `--gres=gpu:pro6000:1` | both pro6000 nodes busy | `sinfo` first; fall back to another card |
+| Job pends forever, `Reason=QOSMaxCpuPerUserLimit` | asked for more than the per-user QOS ceiling (2 pro6000; 4 CPUs/40G on `gpu`) | shrink the request, or use `mixed` for CPU/memory; see [ddp-and-requeue.md](ddp-and-requeue.md) |
+| NCCL `invalid device ordinal` in `shm` transport | `--gpu-bind=single` hid each rank's peer GPU | allocate `--gres=gpu:pro6000:N` per node; pick the device by `SLURM_LOCALID` |
+| Job killed by its own preemption signal | `SIGUSR1` handler installed after the torch import | register the handler before any heavy import |
