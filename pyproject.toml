@@ -18,6 +18,12 @@ dev = [
   "pytest>=8.0",
   "ruff>=0.13",
 ]
+model = [
+  "torch>=2.4",
+]
+figures = [
+  "matplotlib>=3.8",
+]
 track-a = [
   "dm-control==1.0.47",
   "gym==0.26.2",
