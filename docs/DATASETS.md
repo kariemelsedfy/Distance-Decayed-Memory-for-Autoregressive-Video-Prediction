@@ -6,7 +6,16 @@ No datasets have been downloaded or generated.
 
 - **Role:** primary Track A environment and dataset source.
 - **Planned data:** generated 9×9 trajectories at 64×64, beginning with the 200-episode pilot.
-- **License and terms:** not yet verified; record the package, environment, and asset licenses before installation or generation.
+- **Canonical source:** <https://github.com/jurgisp/memory-maze> and the
+  `memory-maze` 1.0.3 package from PyPI.
+- **License and terms:** Memory Maze is MIT licensed with no access gate. Its
+  simulator dependencies are `dm-control` and MuJoCo (both Apache-2.0); Gym is
+  MIT licensed. We generate trajectories ourselves rather than downloading the
+  authors' approximately 100 GB offline dataset. Keep the source/version record
+  with every generated split; confirm any publication-specific asset credit
+  before redistributing rendered frames.
+- **Pinned environment:** `memory-maze==1.0.3`, `dm-control==1.0.47`,
+  `mujoco==3.14.0`, and `gym==0.26.2`; CPU rendering uses OSMesa.
 - **Cluster location:** planned under `/mnt/hpc/tmp/$USER/dd-memory/data/memmaze9/`.
 - **Integrity:** freeze the final test manifest and record its SHA-256 before final evaluation.
 
