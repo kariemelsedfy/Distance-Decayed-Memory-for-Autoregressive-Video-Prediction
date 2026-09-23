@@ -63,7 +63,7 @@ srun --kill-on-bad-exit=1 \
     --set "run_dir=$run_dir" \
     --set "train_split=$DD_TRAIN_SPLIT" \
     --set "base_checkpoint=$DD_BASE_CHECKPOINT" \
-    --set "stage_root=/tmp/$USER/dd-memory-stage" \
+    --set "stage_root=/tmp/$USER/dd-memory-stage" &
 child_pid=$!
 wait "$child_pid"
 status=$?
