@@ -21,9 +21,18 @@ partition they use, and `gpu` additionally limits them to 4 CPUs and 40G across
 all their jobs. A job asking for more does not fail; it pends forever with
 `Reason=QOSMaxCpuPerUserLimit` (observed on cancelled job `68180`).
 
-This caps Track A training at 2 pro6000 GPUs unless the owner obtains a raised
-limit or a reservation from HPC staff. Use `mixed` for anything needing more
-than 4 CPUs or 40G.
+**The two ceilings stack, because they belong to different QOS.** Jobs
+`68310`-`68313` (2026-09-23) held four pro6000 GPUs at once: two through
+`mixed` and two through `gpu`. So the practical limits are:
+
+- **One job:** at most 2 pro6000 GPUs. Any DDP run is a 2-GPU run.
+- **One user, concurrently:** 4 pro6000 GPUs, as 2 jobs on `mixed` (4 CPUs and
+  16G each) plus 2 jobs on `gpu` (2 CPUs and 20G each, since `maxgpu` caps the
+  user at 4 CPUs and 40G in total there).
+
+Put anything CPU- or memory-hungry on `mixed`; use the two `gpu` slots for lean
+single-GPU jobs. CPU-only work goes to `main` (`qosmain`: 150 CPUs, 2000G),
+which these caps do not touch.
 
 ## 2. What was validated
 

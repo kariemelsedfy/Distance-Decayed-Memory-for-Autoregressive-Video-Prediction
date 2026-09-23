@@ -1,6 +1,6 @@
 # Project status
 
-**Updated:** 2026-09-22
+**Updated:** 2026-09-23
 **Active phase:** Phase 0 — foundations
 **Active scope:** Track A only; Track B is deferred.
 **Active branch:** `phase0/ddp-requeue`
@@ -63,20 +63,22 @@
 
 ## Next
 
-1. **Owner decision:** Track A can use at most 2 pro6000 GPUs per user under the
-   current QOS. Either plan the training budget around 2 GPUs or ask HPC staff
-   for a raised limit or a reservation on `moose68`/`moose69`.
-2. Mark PR #20 ready, review, merge, and close issue #6.
-3. Move to the next Phase 0 item once #6 is merged; issue #7 (literature
-   refresh) remains independent.
+1. Merge PR #20 (closes issue #6).
+2. Start issue #8: install Memory Maze headlessly on `main`, measure render
+   speed, and confirm the observation keys for layout and pose. This is CPU
+   work and the GPU ceiling does not touch it.
+3. In parallel, issue #12 (`MemoryPolicy` library and tests) and issue #13
+   (pixel DiT, flow loss, sampler) need no cluster GPUs beyond short checks.
+4. Add a sweep runner (keeps four single-GPU slots full, auto-resumes) before
+   A2 — proposed as a new issue, not yet opened.
+5. Issue #7 (literature refresh) remains independent.
 
 ## Blockers
 
-- The 2-pro6000 per-user ceiling constrains every Track A scaling assumption
-  that expected up to 7 GPUs. Needs an owner decision (see Next, item 1).
-- HPC home remains at its 25,600 MB hard limit; keep everything on scratch.
+None. The GPU ceiling is now a recorded plan constraint (D-007), not a blocker.
+HPC home remains at its 25,600 MB hard limit; keep everything on scratch.
 
 ## Running jobs
 
-None. Jobs `68179`, `68222`, `68224`, and `68228` completed; `68180` was
-cancelled as unrunnable under the QOS cap.
+None. Jobs `68179`, `68222`, `68224`, and `68228` completed. Queue-policy probes
+`68310`-`68313` were cancelled after confirming four concurrent pro6000 GPUs.

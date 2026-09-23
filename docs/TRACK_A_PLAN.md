@@ -108,7 +108,7 @@ A useful fact: for M, a full-fidelity cache of a whole 4,096-frame episode is ab
 ### Stage A1 — base model (one run, shared by every policy)
 
 - Short-context training on 64-frame windows with **full** attention over the window (block-causal mask). This teaches the model how the maze looks and moves: rendering and dynamics.
-- Uses DDP on all available pro6000 cards.
+- Uses DDP on 2 pro6000 cards, the most one job may hold (§9).
 - Stop when validation loss plateaus. Pick the checkpoint by validation loss, plus a visual check of 64-frame rollouts.
 
 This checkpoint is **frozen as the common starting point**. Every policy in A2 starts from exactly the same weights, which keeps the comparison fair and saves a lot of compute.
@@ -203,14 +203,58 @@ That is roughly 30–35 more runs.
 
 ## 9. Compute plan
 
-Every number below is an **estimate to replace with measurements** after the A0/A1 pilots.
+Every number below is an **estimate to replace with measurements** after the
+A0/A1 pilots.
 
-- **Data generation:** CPU job arrays on `main`. 20k episodes × 2,048 frames is about 41M frames. At an assumed ~500 frames/s per core with 32 cores, that's roughly 45 minutes. Even if it's 10× slower, it's still under a day.
-- **A1:** 1 run, M model, about 1–2 days on 4–7 GPUs.
-- **A2 runs:** single-GPU jobs. At an assumed 8–16 GPU-hours each, about 80 runs is roughly 650–1,300 GPU-hours. With 7 cards in parallel, that's **about 4–8 days**.
-- **Evaluation:** P2 rollouts of 4,096 frames are the expensive part. Batch many episodes per GPU. Budget about 20% of A2 compute.
+### 9.1 The GPU budget (measured, 2026-09-22/23)
 
-If this runs over budget, cut in this order: B-high column → uniform_subsample → A4 second seed → P2 on the full test set (use half). **Never** cut: the `full` oracle, 3 seeds on the B-mid column, or the fairness tuning.
+Slurm caps this project at **2 pro6000 GPUs per job** and **4 pro6000 GPUs
+concurrently per user** (two jobs on `mixed`, two on `gpu`). Seven cards exist;
+we may use four at a time. Evidence and the exact QOS limits are in
+[docs/hpc/ddp-and-requeue.md](hpc/ddp-and-requeue.md).
+
+Consequences that shape this plan:
+
+- **A1 is a 2-GPU DDP run,** not a 4-7 GPU run.
+- **A2 and evaluation are throughput problems, not latency problems.** Each run
+  is single-GPU, and four run side by side.
+- **The sweep is queue-bound.** About 80-90 runs cannot be launched at once, so
+  they need a runner that keeps four slots full and resumes interrupted runs
+  (checkpoint/requeue is validated).
+- **Data generation is unaffected:** it is CPU work on `main`.
+
+### 9.2 Estimated cost
+
+- **Data generation:** CPU job arrays on `main`. 20k episodes x 2,048 frames is
+  about 41M frames. At an assumed ~500 frames/s per core with 32 cores, that's
+  roughly 45 minutes. Even if it's 10x slower, it's still under a day.
+- **A1:** 1 run, M model, about 1-2 days on 7 cards in the original estimate;
+  on 2 cards assume **3-5 days**, and re-estimate from the A0/A1 pilot.
+- **A2 runs:** single-GPU jobs. At an assumed 8-16 GPU-hours each, about 80 runs
+  is roughly 650-1,300 GPU-hours. With **4 cards in parallel that is about
+  7-14 days** of wall clock.
+- **Evaluation:** P2 rollouts of 4,096 frames are the expensive part. Batch many
+  episodes per GPU. Budget about 20% of A2 compute, so **8-17 days** for A2 plus
+  evaluation together.
+
+### 9.3 Staging, because the budget is now the binding constraint
+
+Run the sweep in priority order rather than all at once, so that stopping early
+still yields a publishable result:
+
+1. **Core (protected):** B-mid column, 3 seeds, every policy, plus the `full`
+   oracle and the fairness tuning. This alone answers the headline question.
+2. **Second budget column:** B-low, for the budget-sensitivity claim.
+3. **A4 ablations** at B-mid.
+4. **B-high column** and `uniform_subsample`.
+
+If this runs over budget, cut from the bottom of that list. **Never** cut: the
+`full` oracle, 3 seeds on the B-mid column, or the fairness tuning.
+
+Before launching the sweep, replace the per-run estimate with a measured one
+from the A2 pilot and recompute this section. If a measured run costs much more
+than 16 GPU-hours, cut the A2 step count or drop the model from M to S rather
+than dropping seeds.
 
 ---
 
@@ -278,3 +322,4 @@ Copy these into `docs/DECISIONS.md` as the first entries.
 - **D-004** A2 uses streaming training with live caches and a 2-chunk gradient window, chosen over single-pass teacher forcing (exact train/test match, linear cost).
 - **D-005** Budgets are defined as fractions of horizon tokens (0.4 / 0.8 / 2.3%) to mirror large-model conditions. The full-cache oracle is always included.
 - **D-006** Equal tuning effort for every policy. Test split frozen and hashed before final evaluation.
+- **D-007** Plan around the measured Slurm ceiling: 2 pro6000 GPUs per job, 4 concurrent per user. A1 is a 2-GPU DDP run; the A2 sweep is staged and queued four at a time (§9).
