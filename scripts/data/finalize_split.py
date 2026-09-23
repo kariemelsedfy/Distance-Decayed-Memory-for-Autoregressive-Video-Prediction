@@ -17,6 +17,11 @@ def main() -> int:
     parser.add_argument("--expected-shards", type=int, required=True)
     parser.add_argument("--first-seed", type=int, required=True)
     parser.add_argument("--episodes-per-shard", type=int, required=True)
+    parser.add_argument(
+        "--rehash",
+        action="store_true",
+        help="re-read every file to check its SHA-256 (sizes are always checked)",
+    )
     args = parser.parse_args()
 
     shards = sorted(args.split_dir.glob("shard-*[0-9]"))
@@ -37,7 +42,7 @@ def main() -> int:
             "generator_git": sorted({r["generator_git"]["sha"] for r in records}),
         },
     )
-    problems = verify_split(args.split_dir)
+    problems = verify_split(args.split_dir, check_hashes=args.rehash)
     if problems:
         raise SystemExit(f"verification failed: {problems[:10]}")
     digest = (args.split_dir / "manifest.sha256").read_text().split()[0]

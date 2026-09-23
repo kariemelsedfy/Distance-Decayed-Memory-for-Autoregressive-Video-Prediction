@@ -1,0 +1,15 @@
+{
+  "size": "M",
+  "clip_frames": 64,
+  "batch_size": 4,
+  "learning_rate": 0.0002,
+  "warmup_steps": 50,
+  "max_steps": 300,
+  "log_every": 10,
+  "val_every": 150,
+  "val_clips": 16,
+  "sample_every": 300,
+  "sample_steps": 8,
+  "checkpoint_every": 100,
+  "keep_every": 300
+}

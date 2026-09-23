@@ -94,6 +94,7 @@ print(json.dumps({
 }, indent=2))
 PY
     "$python" scripts/data/spot_check_revisits.py "$split_dir" \
+      --max-episodes "${DD_SPOT_CHECK_EPISODES:-200}" \
       --output-dir "$run_dir/spot-check" > /dev/null
     if [[ -d "$split_dir/previews" ]]; then
       cp -r "$split_dir/previews" "$run_dir/previews"
