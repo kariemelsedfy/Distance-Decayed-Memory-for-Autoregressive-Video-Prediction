@@ -7,25 +7,30 @@ import numpy as np
 from PIL import Image
 
 from distance_decayed_memory.data import preview
+from distance_decayed_memory.data.episodes import run_length
 from distance_decayed_memory.data.revisit_script import RevisitScript, ScriptConfig
 from distance_decayed_memory.data.toy_maze import TOY_LAYOUT_9X9, ToyMaze
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def load_generator():
-    path = ROOT / "scripts" / "data" / "generate_revisit_episodes.py"
-    spec = importlib.util.spec_from_file_location("generate_revisit_episodes", path)
+def load_script(name: str):
+    path = ROOT / "scripts" / "data" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
+def test_generation_scripts_import_without_memory_maze() -> None:
+    for name in ("generate_revisit_episodes", "generate_shard", "finalize_split"):
+        assert callable(load_script(name).main)
+
+
 def test_phase_run_length_encoding_round_trips() -> None:
-    module = load_generator()
     phases = ["explore"] * 3 + ["pause"] * 2 + ["explore"]
-    segments = module.run_length(phases)
+    segments = run_length(phases)
     assert segments == [["explore", 0, 3], ["pause", 3, 5], ["explore", 5, 6]]
     decoded = [name for name, start, end in segments for _ in range(start, end)]
     assert decoded == phases
