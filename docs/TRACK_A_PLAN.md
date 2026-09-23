@@ -273,11 +273,12 @@ Consequences that shape this plan:
 
 ### 9.2 Estimated cost
 
-- **Data generation:** CPU job arrays on `main`. 20k episodes × 2,048 frames is
-  about 41M frames. The A0 environment-only measurement is **23.85 frames/s per
-  core**, or about 480 core-hours before navigation and I/O. At ideal 32-core
-  scaling that is roughly 15 hours; measure end-to-end speed and scaling with
-  the 200-episode pilot before scheduling the full split.
+- **Data generation:** CPU job arrays on `main` (`qosmain`: 150 CPUs per
+  user). The pilot measured **25.2 frames/s per core end to end** (scripted
+  navigation adds nothing measurable), so the 41M-frame train split is about
+  450 core-hours, or about 3 hours at the full 150-core allowance. In practice,
+  200 one-core shards of 100 episodes (≈2.3 h each) finish in two waves in
+  about **4.5 hours**. The 4,096-frame test split adds about 45 core-hours.
 - **A1:** 1 run, M model, about 1-2 days on 7 cards in the original estimate;
   on 2 cards assume **3-5 days**, and re-estimate from the A0/A1 pilot.
 - **A2 runs:** single-GPU jobs. At an assumed 8-16 GPU-hours each, about 80 runs
