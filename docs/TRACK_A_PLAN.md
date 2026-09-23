@@ -194,6 +194,11 @@ Budgets are chosen as a **fraction of horizon tokens**, to match what the large 
 | B-mid (default) | 16 | 4,096 | 0.8% |
 | B-high | 48 | 12,288 | 2.3% |
 
+Per D-011 (owner-approved), every policy additionally sees the last 8 frames
+(2,048 tokens) at full fidelity, outside its budget and identical for all
+policies. Report budgets as policy + shared window: totals are 0.8%, 1.2%, and
+2.7% of horizon tokens.
+
 The policies are exactly those in `PROJECT_PLAN.md` §4.1. For each policy × budget, the `stats()` output (tokens per distance bucket) is logged and checked against the budget with an assertion at every compaction.
 
 ---

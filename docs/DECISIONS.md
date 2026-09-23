@@ -108,7 +108,8 @@ future work does not silently change experimental meaning.
 
 ## D-011 — A shared full-fidelity local window of two chunks
 
-- **Status:** accepted (2026-09-23)
+- **Status:** accepted by the owner (2026-09-23), option 1: the window is added
+  on top of the D-005 budgets, which stay unchanged
 - **Decision:** The two most recent chunks (8 frames) are kept at full
   fidelity outside every policy's budget, identically for all policies, in A2
   training and at inference (`StreamingCache`). A2 recomputes those two
@@ -120,3 +121,9 @@ future work does not silently change experimental meaning.
   (for example, `window` at B-low sees 16 frames). The comparison stays fair
   because the local window is identical for all policies, and training and
   inference read the same cache structure (sanity check 6).
+- **Reporting:** every table and figure states budgets as "policy budget +
+  shared 8-frame window" and gives both fractions of horizon tokens: B-low
+  2,048 + 2,048 (0.4% policy, 0.8% total), B-mid 4,096 + 2,048 (0.8%, 1.2%),
+  B-high 12,288 + 2,048 (2.3%, 2.7%). Considered and declined: subtracting the
+  window from each budget (would redefine B-low), counting it inside the
+  budget (about 3× A2 compute), and a one-chunk window (weaker write signal).
