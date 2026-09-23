@@ -53,4 +53,3 @@ future work does not silently change experimental meaning.
   must be measured in the A2 pilot before the sweep is launched. Stopping the
   sweep early still yields the headline result, because the protected core runs
   first.
-
