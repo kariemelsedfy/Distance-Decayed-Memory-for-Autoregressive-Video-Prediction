@@ -46,6 +46,16 @@ echo "Mode: $DD_MEMORY_MODE; git SHA: $(git rev-parse HEAD); node: $(hostname)"
 case "$DD_MEMORY_MODE" in
   setup)
     [[ -x "$python" ]] || conda create -y -p "$env_path" python=3.11 pip
+    # An empty setuptools metadata directory (seen 2026-09-23, job 68334)
+    # makes pip crash before installing anything; remove it and reinstall.
+    site=$("$python" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
+    for info in "$site"/setuptools-*.egg-info "$site"/setuptools-*.dist-info; do
+      if [[ -d "$info" && -z "$(ls -A "$info")" ]]; then
+        echo "Removing empty metadata directory $info"
+        rmdir "$info"
+        "$python" -m pip install --force-reinstall "setuptools>=75"
+      fi
+    done
     "$python" -m pip install ".[track-a]"
     git rev-parse HEAD > "$run_dir/git-sha.txt"
     "$python" -m pip freeze > "$run_dir/pip-freeze.txt"
