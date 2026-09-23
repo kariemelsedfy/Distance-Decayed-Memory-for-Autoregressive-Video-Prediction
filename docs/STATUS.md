@@ -4,7 +4,7 @@
 **Active phase:** Track A milestone A0 — data generation
 **Active scope:** Track A only; Track B is deferred.
 **Active branch:** `phase2/revisit-trajectories`
-**PR:** draft for issue #9
+**PR:** #22 (draft; issue #9)
 
 ## Done
 
@@ -76,7 +76,7 @@
 
 ## In progress
 
-- Draft PR for issue #9 on `phase2/revisit-trajectories`; awaiting CI and
+- Draft PR #22 for issue #9 on `phase2/revisit-trajectories`; awaiting CI and
   owner review.
 
 ## Next
