@@ -4,7 +4,7 @@
 **Active phase:** Phase 0 — foundations
 **Active scope:** Track A only; Track B is deferred.
 **Active branch:** `phase0/memory-maze-headless`
-**PR:** #21 (draft; issue #8)
+**PR:** #21 (ready for review; issue #8)
 
 ## Done
 
@@ -68,7 +68,7 @@
 
 ## In progress
 
-- PR #21 covers issue #8; wait for CI, then mark it ready for review.
+- PR #21 covers issue #8; CI is green and it is ready for owner review.
 
 ## Next
 
