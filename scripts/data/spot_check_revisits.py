@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Validate the pose-based revisit detector on generated episodes (issue #10).
 
-For each episode directory (``frames.npy``, ``pose.npy``, ``meta.json``) this
-labels every frame with the detector, then writes to ``--output-dir``:
+For each episode directory (``frames.npy``, ``pose.npy``, ``meta.json``) or
+sharded split directory (with ``manifest.json``) this labels every frame with
+the detector, then writes to ``--output-dir``:
 
 - ``report.json``: label counts, frames per gap bucket, whether every scripted
   return is found, the pixel difference of matched pairs per bucket against
@@ -33,6 +34,7 @@ from distance_decayed_memory.data.revisit_detector import (
     detect_revisits,
     gap_bucket,
 )
+from distance_decayed_memory.data.shards import SplitReader
 
 SWEEP_POSITIONS = (0.15, 0.3, 0.5)
 SWEEP_HEADINGS = (7.5, 15.0, 30.0)
@@ -48,7 +50,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--heading-tolerance-degrees", type=float, default=15.0)
     parser.add_argument("--min-gap", type=int, default=16)
     parser.add_argument("--no-sweep", action="store_true")
+    parser.add_argument(
+        "--max-episodes", type=int, help="stop after this many episodes in total"
+    )
     return parser.parse_args()
+
+
+def iter_episodes(paths: list[pathlib.Path]):
+    """Yield (poses, frames, meta) from episode directories or split directories."""
+    for path in paths:
+        if (path / "manifest.json").is_file():
+            reader = SplitReader(path)
+            for index in range(len(reader)):
+                episode = reader.episode(index, ("pose", "frames"))
+                yield episode["pose"], episode["frames"], episode["meta"]
+        else:
+            yield (
+                np.load(path / "pose.npy"),
+                np.load(path / "frames.npy"),
+                json.loads((path / "meta.json").read_text()),
+            )
 
 
 def pixel_difference(frames: np.ndarray, a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -140,10 +161,10 @@ def main() -> int:
     misses: list[tuple[np.ndarray, np.ndarray, str]] = []
     total_frames = 0
 
-    for directory in args.episodes:
-        poses = np.load(directory / "pose.npy")
-        frames = np.load(directory / "frames.npy")
-        meta = json.loads((directory / "meta.json").read_text())
+    for number, (poses, frames, meta) in enumerate(iter_episodes(args.episodes)):
+        if args.max_episodes is not None and number >= args.max_episodes:
+            break
+        poses = np.asarray(poses)
         total_frames += len(poses)
         labels = detect_revisits(poses, config)
         counts.update(labels.counts())
