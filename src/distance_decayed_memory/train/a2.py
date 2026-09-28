@@ -255,6 +255,7 @@ def train(config: A2Config) -> int:
                 "model_config": dataclasses.asdict(model_config),
                 "policy": config.policy,
                 "policy_config": config.policy_config,
+                "seed": config.seed,
             },
         )
 
