@@ -145,6 +145,13 @@ is computed once per frame. Heads are 64-dimensional, split 24/20/20 across
 forward exactly (test). Attention uses dense-mask SDPA; switching A1 to
 FlexAttention block masks is left to the A1 trainer.
 
+**Size check (2026-09-23, jobs `68544`–`68546`, 4,000 steps each on 1 GPU,
+batch 4 × 64 frames):** validation loss S 0.0154, M 0.0122, L 0.0102; wall time
+33 / 69 / 182 min (L with activation checkpointing). Larger is better per
+step; L costs about 2.7× M per step, which would make A1 ≈ 3–3.5 days and the
+A2 sweep ≈ 7 days on 4 GPUs instead of ≈ 1 and ≈ 3 days for M. No size
+under-fits yet at 4k steps. Owner chooses the A1 size.
+
 **Default: M.** Go to L only if M is clearly under-fitting *and* the sweep still fits in the compute budget (§9).
 
 A useful fact: for M, a full-fidelity cache of a whole 4,096-frame episode is about 1M tokens × 16 layers × 2 × 768 × 2 bytes, roughly 50 GB. That **fits on one 96 GB card**, so the **full-cache oracle is runnable at every horizon in Track A.** The budget constraint in Track A is imposed deliberately to mirror what the large model would face (§6), and the oracle gives a true upper bound.
@@ -193,6 +200,11 @@ Budgets are chosen as a **fraction of horizon tokens**, to match what the large 
 | B-low | 8 | 2,048 | 0.4% |
 | B-mid (default) | 16 | 4,096 | 0.8% |
 | B-high | 48 | 12,288 | 2.3% |
+
+Per D-011 (owner-approved), every policy additionally sees the last 8 frames
+(2,048 tokens) at full fidelity, outside its budget and identical for all
+policies. Report budgets as policy + shared window: totals are 0.8%, 1.2%, and
+2.7% of horizon tokens.
 
 The policies are exactly those in `PROJECT_PLAN.md` §4.1. For each policy × budget, the `stats()` output (tokens per distance bucket) is logged and checked against the budget with an assertion at every compaction.
 
@@ -279,11 +291,15 @@ Consequences that shape this plan:
   450 core-hours, or about 3 hours at the full 150-core allowance. In practice,
   200 one-core shards of 100 episodes (≈2.3 h each) finish in two waves in
   about **4.5 hours**. The 4,096-frame test split adds about 45 core-hours.
-- **A1:** 1 run, M model, about 1-2 days on 7 cards in the original estimate;
-  on 2 cards assume **3-5 days**, and re-estimate from the A0/A1 pilot.
-- **A2 runs:** single-GPU jobs. At an assumed 8-16 GPU-hours each, about 80 runs
-  is roughly 650-1,300 GPU-hours. With **4 cards in parallel that is about
-  7-14 days** of wall clock.
+- **A1:** 1 run, M model on 2 cards. The A1 smoke (job `68374`) measured
+  **511 frames/s** at 4 clips of 64 frames per GPU (61.5 GB/GPU; larger batches
+  need activation checkpointing), so 100k steps (51M frames) take about
+  **28 hours**. The step count is still to be set by the scaling check.
+- **A2 runs:** single-GPU jobs. The A2 smoke (job `68377`) measured **1.8
+  steps/s** with 8 streams at B-mid (40 GB), so 20k steps take about 3 GPU-hours
+  rather than the assumed 8-16. About 80 runs would then be roughly 250
+  GPU-hours, **about 3 days on 4 cards**; confirm at the A2 pilot with a trained
+  A1 model, where step count and staleness are fixed.
 - **Evaluation:** P2 rollouts of 4,096 frames are the expensive part. Batch many
   episodes per GPU. Budget about 20% of A2 compute, so **8-17 days** for A2 plus
   evaluation together.

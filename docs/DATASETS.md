@@ -27,6 +27,19 @@ Generated splits are listed under Memory Maze below.
   generated at `9c4bece` by jobs `68357`–`68359`. Manifest SHA-256
   `cd259cda0e053052e067be3ced0b5ccaea9ec636ba90c6c98be3018ef07c17a6`.
   About 5 GB. Revisit labels use the D-009 detector at 0.3 cell / 15°.
+- **Full splits (2026-09-23, generator `eda4394`, jobs `68387`–`68494`):**
+
+  | Split | Episodes × frames | Shards | Manifest SHA-256 |
+  |---|---|---|---|
+  | train | 20,000 × 2,048 (41.0M frames, ~500 GB) | 200 × 100 | `cf4f03b8417d4bcb0a7b2cb36830676999705a05fdcf7ec544883fe50a274d27` |
+  | val | 500 × 2,048 | 20 × 25 | `5ef360d2f73ea58d33759c8284611551aca77e0d8fbac62111f5c07fd8521f31` |
+  | **test (frozen)** | 1,000 × 4,096 | 40 × 25 | `35ba76e57932907b7dd4021dfedb9cb1286580a021a94fc90f3f8ffb4282e718` |
+
+  **The test split is frozen.** It is used only for final numbers; any change
+  to it must produce a different manifest hash and be recorded here. Spot
+  checks (200 episodes each): 47.7% / 47.9% / 65.4% revisit frames; matched
+  pairs differ by a median 8.1–9.0 (0–255) in every gap bucket against about
+  26 for random pairs; test covers `[2048,4096)` with 28,251 frames.
 - **Integrity:** freeze the final test manifest and record its SHA-256 before final evaluation.
 
 ## Dataset checklist

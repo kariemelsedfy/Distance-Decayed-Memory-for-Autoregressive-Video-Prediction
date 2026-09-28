@@ -105,3 +105,37 @@ future work does not silently change experimental meaning.
   whose positions follow the continuous curve, rather than arbitrary
   fractional pooling; this keeps every cell an exact average and makes the
   comparison differ only in allocation, not in pooling arithmetic.
+
+## D-011 — A shared full-fidelity local window of two chunks
+
+- **Status:** accepted by the owner (2026-09-23), option 1: the window is added
+  on top of the D-005 budgets, which stay unchanged
+- **Decision:** The two most recent chunks (8 frames) are kept at full
+  fidelity outside every policy's budget, identically for all policies, in A2
+  training and at inference (`StreamingCache`). A2 recomputes those two
+  chunks with gradients in the same forward pass as the noisy target chunk,
+  which realizes D-004's two-chunk gradient window at the cost of one pass per
+  step. The first two chunks of each episode are context only.
+- **Consequence:** A policy's budget is its cache *beyond* the last 8 frames,
+  so every policy effectively sees 8 more recent frames than its budget alone
+  (for example, `window` at B-low sees 16 frames). The comparison stays fair
+  because the local window is identical for all policies, and training and
+  inference read the same cache structure (sanity check 6).
+- **Reporting:** every table and figure states budgets as "policy budget +
+  shared 8-frame window" and gives both fractions of horizon tokens: B-low
+  2,048 + 2,048 (0.4% policy, 0.8% total), B-mid 4,096 + 2,048 (0.8%, 1.2%),
+  B-high 12,288 + 2,048 (2.3%, 2.7%). Considered and declined: subtracting the
+  window from each budget (would redefine B-low), counting it inside the
+  budget (about 3× A2 compute), and a one-chunk window (weaker write signal).
+
+## D-012 — The shared A1 base model is size L
+
+- **Status:** accepted by the owner (2026-09-28)
+- **Decision:** Train A1 with the L model (457M parameters, 24 layers, width
+  1024), activation checkpointing, batch 4 × 64 frames per GPU on 2 GPUs, for
+  100k steps. The size check (jobs `68544`–`68546`) gave validation loss
+  0.0154 / 0.0122 / 0.0102 for S / M / L at 4k steps.
+- **Consequence:** A1 takes about 3–3.5 days and each A2 run about 8
+  GPU-hours, so the full A2 sweep is about 7 days on 4 GPUs. If time runs
+  short, cut the sweep from the bottom of `TRACK_A_PLAN.md` §9.3, never the
+  protected core (B-mid column, 3 seeds, `full` oracle, fairness tuning).

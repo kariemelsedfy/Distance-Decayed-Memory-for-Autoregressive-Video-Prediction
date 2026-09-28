@@ -27,9 +27,41 @@ from dataclasses import dataclass
 
 import torch
 import torch.nn.functional as F
+import torch.utils.checkpoint
 from torch import nn
 
-from distance_decayed_memory.memory.rope import apply_rope
+from distance_decayed_memory.memory.rope import rope_tables, rotate
+
+_compiled_flex = None
+
+
+def flex_attention(q, k, v, block_mask):
+    """FlexAttention, compiled on CUDA (verified on sm_120 in Phase 0).
+
+    Elsewhere it runs eagerly, which is slow and forward-only on CPU; it exists
+    there so tests can check it against the dense-mask path.
+    """
+    global _compiled_flex
+    from torch.nn.attention.flex_attention import flex_attention as flex
+
+    if not q.is_cuda:
+        return flex(q, k, v, block_mask=block_mask)
+    if _compiled_flex is None:
+        _compiled_flex = torch.compile(flex, dynamic=False)
+    return _compiled_flex(q, k, v, block_mask=block_mask)
+
+
+def chunk_block_mask(frames: int, tokens_per_frame: int, chunk_frames: int, device):
+    """FlexAttention block mask equivalent to :func:`chunk_causal_mask`."""
+    from torch.nn.attention.flex_attention import create_block_mask
+
+    per_chunk = tokens_per_frame * chunk_frames
+    n = frames * tokens_per_frame
+
+    def causal_chunks(b, h, q_index, kv_index):
+        return q_index // per_chunk >= kv_index // per_chunk
+
+    return create_block_mask(causal_chunks, None, None, n, n, device=device)
 
 
 @dataclass(frozen=True)
@@ -96,19 +128,38 @@ class ModelCache:
     valid: torch.Tensor
 
     @classmethod
-    def from_policies(cls, policies, dtype=None, device=None) -> ModelCache:
-        """Stack per-episode ``MemoryPolicy.kv()`` results; pad with invalid slots."""
-        parts = [policy.kv() for policy in policies]
-        length = max(part[0].shape[-2] for part in parts)
-        layers, heads, _, dim = parts[0][0].shape
-        dtype = dtype or parts[0][0].dtype
+    def from_policies(cls, policies, dtype=None, device=None) -> ModelCache | None:
+        """Stack per-episode ``MemoryPolicy.kv()`` results; pad with invalid slots.
+
+        Empty policies contribute only invalid slots; returns ``None`` when
+        every policy is empty.
+        """
+        return cls.from_parts(
+            [policy.kv() if policy.blocks else None for policy in policies],
+            dtype,
+            device,
+        )
+
+    @classmethod
+    def from_parts(cls, parts, dtype=None, device=None) -> ModelCache | None:
+        """Batch ``(k, v, pos, weight)`` tuples (``None`` for an empty cache)."""
+        present = [part for part in parts if part is not None]
+        if not present:
+            return None
+        length = max(part[0].shape[-2] for part in present)
+        layers, heads, _, dim = present[0][0].shape
+        dtype = dtype or present[0][0].dtype
+        device = device or present[0][0].device
         batch = len(parts)
         k = torch.zeros(batch, layers, heads, length, dim, dtype=dtype, device=device)
         v = torch.zeros_like(k)
         pos = torch.zeros(batch, length, 3, dtype=torch.float64, device=device)
         weight = torch.ones(batch, length, dtype=torch.float64, device=device)
         valid = torch.zeros(batch, length, dtype=torch.bool, device=device)
-        for index, (pk, pv, ppos, pweight) in enumerate(parts):
+        for index, part in enumerate(parts):
+            if part is None:
+                continue
+            pk, pv, ppos, pweight = part
             n = pk.shape[-2]
             k[index, ..., :n, :] = pk.to(k)
             v[index, ..., :n, :] = pv.to(v)
@@ -204,7 +255,9 @@ class Block(nn.Module):
         positions: torch.Tensor,
         mask: torch.Tensor | None,
         cache: tuple | None,
+        block_mask=None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """``positions`` and the cache's positions are precomputed ``(cos, sin)``."""
         b, n, width = x.shape
         modulation = self.modulation(condition).repeat_interleave(
             self.config.tokens_per_frame, dim=1
@@ -214,12 +267,12 @@ class Block(nn.Module):
         q, k, v = self.qkv(h).reshape(b, n, 3, self.heads, -1).permute(2, 0, 3, 1, 4)
         q, k = self.q_norm(q), self.k_norm(k)
         fresh_k, fresh_v = k, v
-        q_rot = apply_rope(q, positions[:, None], self.config.rope_base)
-        k_rot = apply_rope(k, positions[:, None], self.config.rope_base)
+        q_rot = rotate(q, *positions)
+        k_rot = rotate(k, *positions)
         bias = None
         if cache is not None:
-            cache_k, cache_v, cache_pos, cache_bias = cache
-            cache_rot = apply_rope(cache_k, cache_pos[:, None], self.config.rope_base)
+            cache_k, cache_v, cache_tables, cache_bias = cache
+            cache_rot = rotate(cache_k, *cache_tables)
             k_rot = torch.cat((cache_rot.to(k_rot), k_rot), dim=-2)
             v = torch.cat((cache_v.to(v), v), dim=-2)
             bias = cache_bias
@@ -238,7 +291,10 @@ class Block(nn.Module):
         elif bias is not None:
             zeros = torch.zeros(b, n, dtype=bias.dtype, device=bias.device)
             bias = torch.cat((bias, zeros), dim=-1).to(q.dtype)[:, None, None, :]
-        attended = F.scaled_dot_product_attention(q_rot, k_rot, v, attn_mask=bias)
+        if block_mask is not None and cache is None:
+            attended = flex_attention(q_rot, k_rot, v, block_mask)
+        else:
+            attended = F.scaled_dot_product_attention(q_rot, k_rot, v, attn_mask=bias)
         attended = attended.transpose(1, 2).reshape(b, n, width)
         x = x + gate1 * self.proj(attended)
         h = self.norm2(x) * (1 + scale2) + shift2
@@ -263,6 +319,11 @@ class PixelDiT(nn.Module):
         for layer in (self.final_modulation, self.head):
             nn.init.zeros_(layer.weight)
             nn.init.zeros_(layer.bias)
+        # "sdpa" (dense boolean mask) or "flex" (block mask; clip mode only).
+        self.attention_backend = "sdpa"
+        # Recompute each block in the backward pass to save activation memory.
+        self.activation_checkpointing = False
+        self._block_masks: dict = {}
 
     def forward(
         self,
@@ -293,14 +354,31 @@ class PixelDiT(nn.Module):
         condition = self.time_embed(
             timestep_embedding(noise_level, 256).to(dtype)
         ) + self.action_embed(prev_actions)
-        positions = token_positions(start, t, config.grid)
-        mask = None
+        table_dtype = torch.float64 if x.dtype == torch.float64 else torch.float32
+        positions = rope_tables(
+            token_positions(start, t, config.grid)[:, None],
+            config.head_dim,
+            config.rope_base,
+            table_dtype,
+        )
+        mask = block_mask = None
         if t > config.chunk_frames:
-            mask = chunk_causal_mask(
-                t, config.tokens_per_frame, config.chunk_frames, frames.device
-            )
-        cache_bias = None
+            if self.attention_backend == "flex" and cache is None:
+                key = (t, str(frames.device))
+                if key not in self._block_masks:
+                    self._block_masks[key] = chunk_block_mask(
+                        t, config.tokens_per_frame, config.chunk_frames, frames.device
+                    )
+                block_mask = self._block_masks[key]
+            else:
+                mask = chunk_causal_mask(
+                    t, config.tokens_per_frame, config.chunk_frames, frames.device
+                )
+        cache_bias = cache_tables = None
         if cache is not None:
+            cache_tables = rope_tables(
+                cache.pos[:, None], config.head_dim, config.rope_base, table_dtype
+            )
             cache_bias = torch.where(
                 cache.valid,
                 (
@@ -317,10 +395,22 @@ class PixelDiT(nn.Module):
                 layer_cache = (
                     cache.k[:, index],
                     cache.v[:, index],
-                    cache.pos,
+                    cache_tables,
                     cache_bias,
                 )
-            x, k, v = block(x, condition, positions, mask, layer_cache)
+            if self.activation_checkpointing and self.training:
+                x, k, v = torch.utils.checkpoint.checkpoint(
+                    block,
+                    x,
+                    condition,
+                    positions,
+                    mask,
+                    layer_cache,
+                    block_mask,
+                    use_reentrant=False,
+                )
+            else:
+                x, k, v = block(x, condition, positions, mask, layer_cache, block_mask)
             if return_kv:
                 keys.append(k)
                 values.append(v)

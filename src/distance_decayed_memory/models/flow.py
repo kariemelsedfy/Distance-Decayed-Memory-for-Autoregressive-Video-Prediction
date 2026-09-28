@@ -10,12 +10,20 @@ keys and values are appended to the cache (TRACK_A_PLAN.md §5).
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Callable, Sequence
 
 import torch
 import torch.nn.functional as F
 
 from distance_decayed_memory.models.dit import ModelCache, PixelDiT
+
+
+def unwrap(model) -> PixelDiT:
+    """The :class:`PixelDiT` inside DDP and/or ``torch.compile`` wrappers."""
+    while not isinstance(model, PixelDiT):
+        model = getattr(model, "module", None) or model._orig_mod
+    return model
 
 
 def to_model_range(frames_uint8: torch.Tensor) -> torch.Tensor:
@@ -47,17 +55,22 @@ def chunk_noise_levels(
 
 
 def flow_matching_loss(
-    model: PixelDiT,
+    model,
     frames: torch.Tensor,
     prev_actions: torch.Tensor,
     frame_start: int | torch.Tensor = 0,
     schedule: str = "logit_normal",
     generator: torch.Generator | None = None,
 ) -> torch.Tensor:
-    """Mean squared velocity error on a clip ``[B, T, H, W, C]`` in ``[-1, 1]``."""
+    """Mean squared velocity error on a clip ``[B, T, H, W, C]`` in ``[-1, 1]``.
+
+    ``model`` may be wrapped (DDP, ``torch.compile``); its config is read from
+    the underlying :class:`PixelDiT`.
+    """
     b, t = frames.shape[:2]
+    config = unwrap(model).config
     levels = chunk_noise_levels(
-        b, t, model.config.chunk_frames, schedule, generator, frames.device
+        b, t, config.chunk_frames, schedule, generator, frames.device
     )
     noise = torch.randn(frames.shape, generator=generator, device=frames.device)
     tau = levels[..., None, None, None].to(frames)
@@ -111,10 +124,59 @@ def encode_chunk(
     return k, v
 
 
-def _write(policies: Sequence, k: torch.Tensor, v: torch.Tensor, frame: int) -> None:
-    for index, policy in enumerate(policies):
-        policy.append(k[index], v[index], None, frame)
-        policy.compact()
+class StreamingCache:
+    """Per-episode memory policies plus a full-fidelity local window (D-011).
+
+    The newest ``local_chunks`` encoded chunks stay outside the policy at full
+    fidelity for every policy alike; older chunks are handed to the policy,
+    which compacts them under its budget. Training (A2) and inference use the
+    same structure, so the cache a model reads is the same in both.
+    """
+
+    def __init__(self, policies: Sequence, local_chunks: int = 0) -> None:
+        self.policies = list(policies)
+        self.local_chunks = local_chunks
+        self.pending: deque[tuple[torch.Tensor, torch.Tensor, int]] = deque()
+
+    def model_cache(self) -> ModelCache | None:
+        parts = []
+        for index, policy in enumerate(self.policies):
+            pieces = [policy.kv()] if policy.blocks else []
+            for k, v, start in self.pending:
+                geometry = policy.geometry
+                frames = k.shape[-2] // geometry.tokens_per_frame
+                pos = torch.cat(
+                    [geometry.frame_positions(start + f) for f in range(frames)]
+                )
+                pieces.append(
+                    (
+                        k[index],
+                        v[index],
+                        pos,
+                        torch.ones(pos.shape[0], dtype=torch.float64),
+                    )
+                )
+            if not pieces:
+                parts.append(None)
+                continue
+            parts.append(
+                (
+                    torch.cat([piece[0] for piece in pieces], dim=-2),
+                    torch.cat([piece[1] for piece in pieces], dim=-2),
+                    torch.cat([piece[2].to(torch.float64) for piece in pieces]),
+                    torch.cat([piece[3].to(torch.float64) for piece in pieces]),
+                )
+            )
+        return ModelCache.from_parts(parts)
+
+    def push(self, k: torch.Tensor, v: torch.Tensor, start: int) -> None:
+        """Add a chunk's ``[B, layers, heads, n, dim]`` K/V starting at ``start``."""
+        self.pending.append((k, v, start))
+        while len(self.pending) > self.local_chunks:
+            old_k, old_v, old_start = self.pending.popleft()
+            for index, policy in enumerate(self.policies):
+                policy.append(old_k[index], old_v[index], None, old_start)
+                policy.compact()
 
 
 @torch.no_grad()
@@ -126,33 +188,34 @@ def rollout(
     total_frames: int,
     steps: int = 16,
     generator: torch.Generator | None = None,
+    local_chunks: int = 0,
 ) -> torch.Tensor:
     """Autoregressive generation from ``context`` true frames (protocol P2).
 
     ``context`` is ``[B, C0, H, W, C]`` with ``C0`` a multiple of the chunk;
     ``prev_actions`` is ``[B, total_frames]``. Each episode gets its own policy
-    from ``make_policy``. Returns all ``total_frames`` frames (context first).
+    from ``make_policy``; the newest ``local_chunks`` chunks are kept at full
+    fidelity outside it (D-011). Returns all ``total_frames`` frames.
     """
     config = model.config
     chunk = config.chunk_frames
     b, known = context.shape[:2]
-    policies = [make_policy() for _ in range(b)]
+    cache = StreamingCache([make_policy() for _ in range(b)], local_chunks)
     output = [context]
     for start in range(0, known, chunk):
-        cache = ModelCache.from_policies(policies) if start else None
         k, v = encode_chunk(
             model,
             context[:, start : start + chunk],
             prev_actions[:, start : start + chunk],
             start,
-            cache,
+            cache.model_cache(),
         )
-        _write(policies, k, v, start)
+        cache.push(k, v, start)
     for start in range(known, total_frames, chunk):
-        cache = ModelCache.from_policies(policies)
+        current = cache.model_cache()
         actions = prev_actions[:, start : start + chunk]
-        frames = sample_chunk(model, actions, start, cache, steps, generator)
-        k, v = encode_chunk(model, frames, actions, start, cache)
-        _write(policies, k, v, start)
-        output.append(frames)
+        frames = sample_chunk(model, actions, start, current, steps, generator)
+        k, v = encode_chunk(model, frames, actions, start, current)
+        cache.push(k, v, start)
+        output.append(frames.to(context.dtype))
     return torch.cat(output, dim=1)

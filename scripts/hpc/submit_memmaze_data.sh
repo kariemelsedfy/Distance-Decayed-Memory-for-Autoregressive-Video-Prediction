@@ -10,6 +10,7 @@ shards=""
 frames=2048
 shard_time="02:00:00"
 preview_episodes=2
+after=""
 
 usage() {
   cat <<'EOF_USAGE'
@@ -24,6 +25,8 @@ Options:
   --frames N          frames per episode (default 2048; 4096 for test)
   --shard-time T      wall time per shard task, HH:MM:SS (default 02:00:00)
   --preview-episodes N  previews for the first N episodes of shard 0 (default 2)
+  --after JOBID       skip the setup job and start shards after JOBID succeeds
+                      (use the setup job of a split submitted just before)
 EOF_USAGE
 }
 
@@ -37,6 +40,7 @@ while [[ $# -gt 0 ]]; do
     --frames) frames="${2:?}"; shift 2 ;;
     --shard-time) shard_time="${2:?}"; shift 2 ;;
     --preview-episodes) preview_episodes="${2:?}"; shift 2 ;;
+    --after) after="${2:?}"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -51,6 +55,7 @@ for value in "$first_seed" "$episodes_per_shard" "$shards" "$frames" "$preview_e
   [[ "$value" =~ ^[0-9]+$ ]] || { echo "numeric options are required" >&2; exit 2; }
 done
 ((shards >= 1 && shards <= 1000)) || { echo "--shards must be 1-1000" >&2; exit 2; }
+[[ -z "$after" || "$after" =~ ^[0-9]+$ ]] || { echo "invalid --after" >&2; exit 2; }
 [[ "$shard_time" =~ ^[0-9]{2}:[0-5][0-9]:[0-5][0-9]$ ]] || {
   echo "invalid --shard-time" >&2
   exit 2
@@ -69,19 +74,22 @@ last_shard=$((shards - 1))
 read -r -d '' remote_command <<EOF_REMOTE || true
 set -euo pipefail
 test -f $q_batch
-active=\$(squeue -u "\$USER" -h -o '%j' | grep -E '^memmaze-($split|setup|final)\$' || true)
+active=\$(squeue -u "\$USER" -h -o '%j' | grep -E '^memmaze-(setup|final)?-?$split\$' || true)
 if [[ -n "\$active" ]]; then
-  echo "Refusing to submit: Memory Maze data jobs are already queued:" >&2
+  echo "Refusing to submit: jobs for split $split are already queued:" >&2
   echo "\$active" >&2
   exit 3
 fi
-mkdir -p "/mnt/hpc/tmp/\$USER/dd-memory/logs"
-setup=\$(sbatch --parsable --time=00:30:00 --job-name=memmaze-setup \
-  --export=$q_exports,DD_MEMORY_MODE=setup $q_batch)
+if [[ -n "$after" ]]; then
+  setup=$after
+else
+  setup=\$(sbatch --parsable --time=00:30:00 --job-name=memmaze-setup-$split \
+    --export=$q_exports,DD_MEMORY_MODE=setup $q_batch)
+fi
 array=\$(sbatch --parsable --time=$shard_time --array=0-$last_shard \
   --dependency=afterok:\$setup --job-name=memmaze-$split \
   --export=$q_exports,DD_MEMORY_MODE=shard $q_batch)
-final=\$(sbatch --parsable --time=01:00:00 --mem=16G --job-name=memmaze-final \
+final=\$(sbatch --parsable --time=02:00:00 --mem=16G --job-name=memmaze-final-$split \
   --dependency=afterok:\$array \
   --export=$q_exports,DD_MEMORY_MODE=finalize $q_batch)
 printf '%s %s %s\n' "\$setup" "\$array" "\$final"

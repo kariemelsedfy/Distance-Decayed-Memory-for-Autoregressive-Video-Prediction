@@ -1,0 +1,12 @@
+{
+  "policy": "decay_continuous",
+  "policy_config": {"budget_tokens": 4096, "horizon": 2048, "window": 4, "shape": "exp", "scale": 256},
+  "streams": 8,
+  "grad_chunks": 2,
+  "learning_rate": 0.00005,
+  "warmup_steps": 20,
+  "max_steps": 400,
+  "log_every": 20,
+  "checkpoint_every": 200,
+  "staleness_every": 100
+}

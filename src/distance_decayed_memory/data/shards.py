@@ -322,6 +322,8 @@ class ClipDataset:
     Clips start every ``start_stride`` frames (a multiple of the 4-frame chunk
     by default) and never cross an episode boundary. Items are dictionaries of
     NumPy arrays, which the default torch collate turns into tensors.
+    ``prev_action`` is the action taken just before the clip's first frame, or
+    ``no_action`` when the clip starts the episode.
     """
 
     def __init__(
@@ -330,10 +332,12 @@ class ClipDataset:
         clip_frames: int = 64,
         start_stride: int = 4,
         names: Sequence[str] = ("frames", "actions", "pose"),
+        no_action: int = 6,
     ) -> None:
         self.reader = SplitReader(split_dir)
         self.clip_frames = clip_frames
-        self.names = tuple(names)
+        self.names = tuple(dict.fromkeys((*names, "actions")))
+        self.no_action = no_action
         starts = []
         for index in range(len(self.reader)):
             length = self.reader.episode_length(index)
@@ -349,6 +353,9 @@ class ClipDataset:
         episode = self.reader.episode(episode_index, self.names)
         stop = start + self.clip_frames
         clip = {name: np.array(episode[name][start:stop]) for name in self.names}
+        clip["prev_action"] = np.int64(
+            episode["actions"][start - 1] if start else self.no_action
+        )
         clip["episode"] = np.int64(episode_index)
         clip["start"] = np.int64(start)
         return clip

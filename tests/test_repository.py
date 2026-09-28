@@ -21,3 +21,10 @@ def test_extracted_appendices_are_linked() -> None:
     assert (
         "[Read Appendix D: Bowdoin HPC reference](hpc/bowdoin-hpc.md)" in project_plan
     )
+
+
+def test_training_jobs_background_the_trainer_before_waiting() -> None:
+    # The USR1 trap can only forward the signal if srun runs in the background.
+    for name in ("a1-train.sbatch", "a2-train.sbatch"):
+        script = (ROOT / "slurm" / name).read_text(encoding="utf-8")
+        assert '" &\nchild_pid=$!' in script, name

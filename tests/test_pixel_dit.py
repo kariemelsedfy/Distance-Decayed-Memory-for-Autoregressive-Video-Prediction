@@ -205,3 +205,25 @@ def test_size_ladder_parameter_counts() -> None:
     for name, trunk in (("S", 38e6), ("M", 113e6), ("L", 302e6)):
         assert 1.3 * trunk < counts[name] < 1.6 * trunk
     assert all(config.head_dim == 64 for config in SIZES.values())
+
+
+def test_flex_block_mask_matches_dense_mask() -> None:
+    pytest.importorskip("torch.nn.attention.flex_attention")
+    model = tiny_model().float()
+    x, prev, levels = clip()
+    with torch.no_grad():
+        dense = model(x.float(), levels.float(), prev)
+        model.attention_backend = "flex"
+        flex = model(x.float(), levels.float(), prev)
+    torch.testing.assert_close(flex, dense, atol=1e-5, rtol=1e-4)
+
+
+def test_activation_checkpointing_preserves_gradients() -> None:
+    x, prev, levels = clip()
+    grads = []
+    for checkpointing in (False, True):
+        model = tiny_model().train()
+        model.activation_checkpointing = checkpointing
+        model(x, levels, prev).square().mean().backward()
+        grads.append(torch.cat([p.grad.flatten() for p in model.parameters()]))
+    torch.testing.assert_close(grads[0], grads[1])

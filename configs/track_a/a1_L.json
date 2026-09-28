@@ -1,0 +1,18 @@
+{
+  "size": "L",
+  "clip_frames": 64,
+  "batch_size": 4,
+  "learning_rate": 0.0002,
+  "warmup_steps": 1000,
+  "max_steps": 100000,
+  "activation_checkpointing": true,
+  "ema_decay": 0.999,
+  "attention": "flex",
+  "precision": "bf16",
+  "log_every": 50,
+  "val_every": 2000,
+  "val_clips": 64,
+  "sample_every": 10000,
+  "checkpoint_every": 1000,
+  "keep_every": 20000
+}
