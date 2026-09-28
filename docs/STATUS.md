@@ -1,10 +1,11 @@
 # Project status
 
 **Updated:** 2026-09-23
-**Active phase:** Phase 0 — foundations
+**Active phase:** Track A milestone A0 — data generation
 **Active scope:** Track A only; Track B is deferred.
-**Active branch:** `phase0/memory-maze-headless`
-**PR:** #21 (ready for review; issue #8)
+**Active branch:** `phase2/revisit-detector` (stacked on
+`phase2/revisit-trajectories`)
+**PRs:** #22 (issue #9), then #23 (issue #10) stacked on it
 
 ## Done
 
@@ -65,15 +66,29 @@
   `maze_layout`, 2D `agent_pos`, and unit-vector `agent_dir`; confirmed all six
   discrete actions and their order. Exact versions are in
   `environment/hpc-memory-maze.txt`.
+- Merged PR #21 (closes issue #8).
+- Implemented issue #9: A* grid navigation, a closed-loop controller for the
+  six discrete actions, the scripted revisit planner (log-uniform gaps,
+  pauses, detours, partial returns, 30% no-revisit episodes, 5% action noise),
+  a toy maze simulator, the episode writer, and viewable previews (GIF, map,
+  anchor/return pairs). 69 CPU tests pass. A local 20-episode run on the real
+  environment completed 81 returns, all within 0.20 cell and 7.9° of the
+  anchor pose. Conventions recorded as D-008.
+- Implemented issue #10: the pose-based revisit detector (refined so a pause
+  cannot count as a revisit, D-009), power-of-two gap buckets, and
+  `scripts/data/spot_check_revisits.py` (report, tolerance sweep, and a
+  pair grid). On 20 local episodes, 46% of frames are revisits and all seven
+  buckets up to 2,048 are populated. 84 CPU tests pass.
 
 ## In progress
 
-- PR #21 covers issue #8; CI is green and it is ready for owner review.
+- Draft PR #22 (issue #9) and stacked draft PR #23 (issue #10); both await
+  owner review.
 
 ## Next
 
-1. Merge the issue #8 PR, then start issue #9: scripted revisit trajectories,
-   A* navigation, and toy-grid tests.
+1. Review and merge #22 (issue #9), then the issue #10 PR stacked on it.
+   Next code issue: #11 (sharded writer and loader), then the pilot (#18).
 2. Continue through #10 (revisit detector), #11 (writer/loader), and #18 (pilot
    split) to complete A0; the full split is not ready to launch yet.
 3. In parallel, issue #12 (`MemoryPolicy` library and tests) and issue #13

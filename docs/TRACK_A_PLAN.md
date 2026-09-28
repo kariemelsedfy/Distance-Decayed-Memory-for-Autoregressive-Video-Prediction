@@ -63,11 +63,38 @@ The generator produces episodes in which **the agent deliberately returns to ear
 4. Mix in natural behaviour: random pauses, detours, partial returns, and episodes with **no scripted revisit** (about 30%). This stops the model from learning "a return always comes after X".
 5. Navigation uses A* over grid cells plus a simple turn-then-move controller on the discrete actions. Add small action noise (about 5%) so trajectories aren't perfectly robotic.
 
+**Implemented (issue #9).** `src/distance_decayed_memory/data/navigation.py`
+(A*, closed-loop controller), `revisit_script.py` (the planner), and
+`scripts/data/generate_revisit_episodes.py` (writer plus previews). Measured
+Memory Maze dynamics at 4 Hz: one turn command from rest rotates about 17–18°
+once momentum decays, and forward motion reaches 0.25 cell/step after about
+three steps, coasting about 0.18 cell after release. The controller therefore
+aligns heading to within 10° (15° fallback after six alignment turns). In a
+20-episode local check (seeds 0–19, 40,960 frames), 81 returns completed, all within
+0.20 cell and 7.9° of the anchor pose, with a median arrival 3 frames after
+the target. Realized gaps covered 16–2,047 frames, but the `[16, 32)` bucket
+was thin (3 of 81); the A0 pilot must confirm per-bucket coverage, counting
+natural revisits from the detector as well. Conventions are in `D-008`.
+
 Target episode length: **2,048 frames** for training and **4,096 frames** for evaluation episodes. The longer evaluation episodes test whether memory generalizes past the training length.
 
 ### 3.3 Revisit detection for evaluation (independent of the script)
 
 A frame at time `t` counts as a **revisit with gap `g`** if there is an earlier frame `t' < t − w_min` with position within 0.3 cells and heading within 15° *(tune thresholds in the pilot using visual spot-checks)*, where `g = t − t'` uses the most recent such `t'`. Revisits found naturally, not only scripted ones, are counted too. Frames with no match are **novel views**, which are the control condition.
+
+**Implemented (issue #10)** in
+`src/distance_decayed_memory/data/revisit_detector.py`, with the refinement
+recorded as `D-009`: the source must precede the current unbroken run of
+matching frames, so a pause cannot count as a revisit. On the 20 local
+episodes (40,960 frames), 46% of frames were revisits and 52% novel, and every
+bucket from `[16,32)` (377 frames) to `[1024,2048)` (1,647) was populated.
+Matched pairs differed by a median 7–8 (mean absolute RGB, 0–255) in every
+bucket, against 26 for random pairs. A tolerance sweep
+(`scripts/data/spot_check_revisits.py`) showed the trade-off: 0.15 cell/7.5°
+gives 27% revisits at median 5.1, 0.3/15° gives 46% at 8.1, and 0.5/30° gives
+57% at 13.1. Every completed scripted return was found: 68 of 81 as revisits,
+13 as `recent` because the agent swept through the anchor view while turning
+into place.
 
 Gap buckets (frames): `[16,32), [32,64), … , [2048,4096)`. These are powers of two, which gives 8 buckets.
 
@@ -237,11 +264,12 @@ Consequences that shape this plan:
 
 ### 9.2 Estimated cost
 
-- **Data generation:** CPU job arrays on `main`. 20k episodes × 2,048 frames is
-  about 41M frames. The A0 environment-only measurement is **23.85 frames/s per
-  core**, or about 480 core-hours before navigation and I/O. At ideal 32-core
-  scaling that is roughly 15 hours; measure end-to-end speed and scaling with
-  the 200-episode pilot before scheduling the full split.
+- **Data generation:** CPU job arrays on `main` (`qosmain`: 150 CPUs per
+  user). The pilot measured **25.2 frames/s per core end to end** (scripted
+  navigation adds nothing measurable), so the 41M-frame train split is about
+  450 core-hours, or about 3 hours at the full 150-core allowance. In practice,
+  200 one-core shards of 100 episodes (≈2.3 h each) finish in two waves in
+  about **4.5 hours**. The 4,096-frame test split adds about 45 core-hours.
 - **A1:** 1 run, M model, about 1-2 days on 7 cards in the original estimate;
   on 2 cards assume **3-5 days**, and re-estimate from the A0/A1 pilot.
 - **A2 runs:** single-GPU jobs. At an assumed 8-16 GPU-hours each, about 80 runs

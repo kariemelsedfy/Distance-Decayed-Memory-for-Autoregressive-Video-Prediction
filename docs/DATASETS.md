@@ -1,6 +1,6 @@
 # Dataset registry
 
-No datasets have been downloaded or generated.
+Generated splits are listed under Memory Maze below.
 
 ## Memory Maze
 
@@ -19,7 +19,14 @@ No datasets have been downloaded or generated.
   `MUJOCO_GL=egl`, `PYOPENGL_PLATFORM=egl`, and
   `LIBGL_ALWAYS_SOFTWARE=1`; job `68321` identified the renderer as Mesa
   llvmpipe. OSMesa and Xvfb are not installed on the CPU nodes.
-- **Cluster location:** planned under `/mnt/hpc/tmp/$USER/dd-memory/data/memmaze9/`.
+- **Cluster location:** `/mnt/hpc/tmp/$USER/dd-memory/data/memmaze9/<split>/`
+  (sharded format, `src/distance_decayed_memory/data/shards.py`).
+- **Seed ranges (disjoint):** train 0–19,999; val 1,000,000–1,000,499; test
+  2,000,000–2,000,999 (4,096 frames); pilot 3,000,000–3,000,199.
+- **Pilot split (2026-09-23):** 200 episodes × 2,048 frames in 8 shards of 25,
+  generated at `9c4bece` by jobs `68357`–`68359`. Manifest SHA-256
+  `cd259cda0e053052e067be3ced0b5ccaea9ec636ba90c6c98be3018ef07c17a6`.
+  About 5 GB. Revisit labels use the D-009 detector at 0.3 cell / 15°.
 - **Integrity:** freeze the final test manifest and record its SHA-256 before final evaluation.
 
 ## Dataset checklist
