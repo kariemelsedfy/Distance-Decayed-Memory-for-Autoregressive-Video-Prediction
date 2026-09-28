@@ -124,8 +124,14 @@ stack)
 
 ## Blockers
 
-None. The GPU ceiling is now a recorded plan constraint (D-007), not a blocker.
-HPC home remains at its 25,600 MB hard limit; keep everything on scratch.
+- **Scratch purge (found 2026-09-28):** `/mnt/hpc/tmp` deletes files older
+  than an unknown threshold (at least 42 days) by modification time. It broke
+  two conda environments; the dataset (written 2026-09-23) and future
+  checkpoints are exposed from early November. **Owner action:** ask Bowdoin
+  HPC staff for the exact policy and a persistent location for data and
+  checkpoints. Details: `docs/hpc/environments.md`.
+- The GPU ceiling is a recorded plan constraint (D-007). HPC home remains at
+  its 25,600 MB hard limit; keep everything on scratch.
 
 ## Running jobs
 
