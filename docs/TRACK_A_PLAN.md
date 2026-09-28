@@ -145,6 +145,13 @@ is computed once per frame. Heads are 64-dimensional, split 24/20/20 across
 forward exactly (test). Attention uses dense-mask SDPA; switching A1 to
 FlexAttention block masks is left to the A1 trainer.
 
+**Size check (2026-09-23, jobs `68544`–`68546`, 4,000 steps each on 1 GPU,
+batch 4 × 64 frames):** validation loss S 0.0154, M 0.0122, L 0.0102; wall time
+33 / 69 / 182 min (L with activation checkpointing). Larger is better per
+step; L costs about 2.7× M per step, which would make A1 ≈ 3–3.5 days and the
+A2 sweep ≈ 7 days on 4 GPUs instead of ≈ 1 and ≈ 3 days for M. No size
+under-fits yet at 4k steps. Owner chooses the A1 size.
+
 **Default: M.** Go to L only if M is clearly under-fitting *and* the sweep still fits in the compute budget (§9).
 
 A useful fact: for M, a full-fidelity cache of a whole 4,096-frame episode is about 1M tokens × 16 layers × 2 × 768 × 2 bytes, roughly 50 GB. That **fits on one 96 GB card**, so the **full-cache oracle is runnable at every horizon in Track A.** The budget constraint in Track A is imposed deliberately to mirror what the large model would face (§6), and the oracle gives a true upper bound.
