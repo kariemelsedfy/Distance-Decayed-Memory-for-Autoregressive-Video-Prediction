@@ -139,3 +139,15 @@ future work does not silently change experimental meaning.
   GPU-hours, so the full A2 sweep is about 7 days on 4 GPUs. If time runs
   short, cut the sweep from the bottom of `TRACK_A_PLAN.md` §9.3, never the
   protected core (B-mid column, 3 seeds, `full` oracle, fairness tuning).
+
+## D-013 — The `full` oracle is capped at the horizon
+
+- **Status:** accepted (2026-09-28), a consequence of D-012
+- **Decision:** In evaluation, `full` keeps every token within the same
+  horizon `H = 2,048` frames that caps every budgeted policy, and drops older
+  ones. With the L model a complete cache of a 4,096-frame episode is about
+  100 GB of keys and values, which does not fit on one 96 GB card; within the
+  horizon it is about 50 GB and fits (evaluate it one episode at a time).
+- **Consequence:** The oracle remains a true upper bound for every policy,
+  since none can see beyond `H` either. The `[2048, 4096)` bucket compares
+  all policies, oracle included, on what they retain within the horizon.
