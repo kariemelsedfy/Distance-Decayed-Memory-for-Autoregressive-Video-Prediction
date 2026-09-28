@@ -82,6 +82,20 @@ Target episode length: **2,048 frames** for training and **4,096 frames** for ev
 
 A frame at time `t` counts as a **revisit with gap `g`** if there is an earlier frame `t' < t − w_min` with position within 0.3 cells and heading within 15° *(tune thresholds in the pilot using visual spot-checks)*, where `g = t − t'` uses the most recent such `t'`. Revisits found naturally, not only scripted ones, are counted too. Frames with no match are **novel views**, which are the control condition.
 
+**Implemented (issue #10)** in
+`src/distance_decayed_memory/data/revisit_detector.py`, with the refinement
+recorded as `D-009`: the source must precede the current unbroken run of
+matching frames, so a pause cannot count as a revisit. On the 20 local
+episodes (40,960 frames), 46% of frames were revisits and 52% novel, and every
+bucket from `[16,32)` (377 frames) to `[1024,2048)` (1,647) was populated.
+Matched pairs differed by a median 7–8 (mean absolute RGB, 0–255) in every
+bucket, against 26 for random pairs. A tolerance sweep
+(`scripts/data/spot_check_revisits.py`) showed the trade-off: 0.15 cell/7.5°
+gives 27% revisits at median 5.1, 0.3/15° gives 46% at 8.1, and 0.5/30° gives
+57% at 13.1. Every completed scripted return was found: 68 of 81 as revisits,
+13 as `recent` because the agent swept through the anchor view while turning
+into place.
+
 Gap buckets (frames): `[16,32), [32,64), … , [2048,4096)`. These are powers of two, which gives 8 buckets.
 
 ### 3.4 Storage format
