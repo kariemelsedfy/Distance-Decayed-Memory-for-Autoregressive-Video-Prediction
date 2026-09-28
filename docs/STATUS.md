@@ -129,13 +129,8 @@ HPC home remains at its 25,600 MB hard limit; keep everything on scratch.
 
 ## Running jobs
 
-Submitted 2026-09-23 ~15:47 UTC from checkout `eda4394` (owner-approved):
-
-- Data (CPU, `main`): train `68388` → finalize `68389`; val `68390` →
-  `68391`; test `68493` → `68494` (setup `68387`). Expected about 4.5 h.
-- A1 size check (GPU): `68544` S and `68545` M on `mixed`, `68546` L on `gpu`,
-  1 GPU each, 4,000 steps; start automatically after `68389` and `68391`.
-  **Report to the owner before the full A1 run.**
-
-After the test split finalizes, record its manifest SHA-256 in
-`docs/DATASETS.md` (frozen).
+- A1 base model, size L (D-012): see the `a1-L` row in `docs/EXPERIMENTS.md`
+  for the job ID. About 3–3.5 days; checkpoints every 1,000 steps, samples
+  every 10,000.
+- Completed: full splits (test frozen, `docs/DATASETS.md`) and the S/M/L size
+  check.

@@ -127,3 +127,15 @@ future work does not silently change experimental meaning.
   B-high 12,288 + 2,048 (2.3%, 2.7%). Considered and declined: subtracting the
   window from each budget (would redefine B-low), counting it inside the
   budget (about 3× A2 compute), and a one-chunk window (weaker write signal).
+
+## D-012 — The shared A1 base model is size L
+
+- **Status:** accepted by the owner (2026-09-28)
+- **Decision:** Train A1 with the L model (457M parameters, 24 layers, width
+  1024), activation checkpointing, batch 4 × 64 frames per GPU on 2 GPUs, for
+  100k steps. The size check (jobs `68544`–`68546`) gave validation loss
+  0.0154 / 0.0122 / 0.0102 for S / M / L at 4k steps.
+- **Consequence:** A1 takes about 3–3.5 days and each A2 run about 8
+  GPU-hours, so the full A2 sweep is about 7 days on 4 GPUs. If time runs
+  short, cut the sweep from the bottom of `TRACK_A_PLAN.md` §9.3, never the
+  protected core (B-mid column, 3 seeds, `full` oracle, fairness tuning).
