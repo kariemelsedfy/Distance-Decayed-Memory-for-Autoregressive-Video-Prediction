@@ -57,7 +57,9 @@ module load miniconda3
 env_path="/mnt/hpc/tmp/\$USER/envs/$env_name"
 workdir=$quoted_workdir
 export CONDA_ENVS_PATH="/mnt/hpc/tmp/\$USER/envs"
-export CONDA_PKGS_DIRS="/mnt/hpc/tmp/\$USER/cache/conda/pkgs"
+# A fresh package cache per build: /mnt/hpc/tmp deletes files whose mtime is
+# about six weeks old, so an older cache can hold packages with missing files.
+export CONDA_PKGS_DIRS="/mnt/hpc/tmp/\$USER/cache/conda/pkgs-\$(date +%Y%m%d%H%M)"
 export PIP_CACHE_DIR="/mnt/hpc/tmp/\$USER/cache/pip"
 export XDG_CACHE_HOME="/mnt/hpc/tmp/\$USER/cache"
 export TMPDIR="/mnt/hpc/tmp/\$USER/tmp"
@@ -72,6 +74,9 @@ fi
 "\$env_path/bin/python" -m pip install torch --index-url https://download.pytorch.org/whl/cu128
 "\$env_path/bin/python" -m pip install "\${workdir}[dev,figures]"
 "\$env_path/bin/python" -m pip uninstall -y distance-decayed-memory
+# Conda keeps each package's original (often years-old) file mtimes, which the
+# scratch purge deletes within a day; stamp every file with the build time.
+find "\$env_path" -exec touch -h {} +
 broken=\$(find "\$env_path" -xtype l | head -20)
 if [[ -n "\$broken" ]]; then
   echo "Broken links in \$env_path:" >&2

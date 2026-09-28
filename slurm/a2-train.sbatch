@@ -22,7 +22,7 @@ set -euo pipefail
 : "${DD_MEMORY_CHECKOUT:?}" "${DD_MEMORY_RUN_ID:?}" "${DD_A2_CONFIG:?}" "${DD_BASE_CHECKPOINT:?}"
 : "${DD_TRAIN_SPLIT:?}"
 
-env_path="/mnt/hpc/tmp/$USER/envs/${DD_MEMORY_ENV:-dd-memory-gpu}"
+env_path="/mnt/hpc/tmp/$USER/envs/${DD_MEMORY_ENV:-dd-memory-gpu-20260928}"
 run_dir="/mnt/hpc/tmp/$USER/dd-memory/runs/$DD_MEMORY_RUN_ID"
 export PIP_CACHE_DIR="/mnt/hpc/tmp/$USER/cache/pip"
 export XDG_CACHE_HOME="/mnt/hpc/tmp/$USER/cache"
