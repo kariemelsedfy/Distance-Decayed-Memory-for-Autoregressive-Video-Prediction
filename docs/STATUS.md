@@ -135,8 +135,9 @@ stack)
 
 ## Running jobs
 
-- A1 base model, size L (D-012): see the `a1-L` row in `docs/EXPERIMENTS.md`
-  for the job ID. About 3–3.5 days; checkpoints every 1,000 steps, samples
-  every 10,000.
+- **A1 base model, size L** (D-012): job `69049`, run
+  `a1-L-20260928T084605Z`, started 2026-09-28 04:46 EDT. 188.8 frames/s,
+  ETA about 2026-10-01 noon EDT. Validation every 2,000 steps, sample GIF
+  every 10,000, checkpoint every 1,000 (auto-resume on requeue).
 - Completed: full splits (test frozen, `docs/DATASETS.md`) and the S/M/L size
   check.
