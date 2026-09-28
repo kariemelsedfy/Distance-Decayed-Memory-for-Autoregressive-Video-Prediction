@@ -4,6 +4,7 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 env_name="dd-memory"
 python_version="3.11"
+torch_version="2.11.0"
 remote_workdir=""
 wall_time="00:30:00"
 cpus=4
@@ -22,6 +23,7 @@ runs as a CPU job on the main partition, never on the login node.
 Options:
   --name NAME       Environment name (default: dd-memory)
   --python VERSION  Python version (default: 3.11)
+  --torch VERSION   PyTorch version, pinned with its torchvision (default: 2.11.0)
   --time HH:MM:SS   Slurm wall time (default: 00:30:00)
   --cpus N          CPU cores (default: 4)
   --mem SIZE        Slurm memory (default: 16G)
@@ -32,6 +34,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --name) env_name="${2:?missing name}"; shift 2 ;;
     --python) python_version="${2:?missing version}"; shift 2 ;;
+    --torch) torch_version="${2:?missing version}"; shift 2 ;;
     --workdir) remote_workdir="${2:?missing path}"; shift 2 ;;
     --time) wall_time="${2:?missing wall time}"; shift 2 ;;
     --cpus) cpus="${2:?missing CPU count}"; shift 2 ;;
@@ -43,6 +46,7 @@ done
 
 [[ "$env_name" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid env name" >&2; exit 2; }
 [[ "$python_version" =~ ^[0-9]+\.[0-9]+$ ]] || { echo "Invalid Python version" >&2; exit 2; }
+[[ "$torch_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid torch version" >&2; exit 2; }
 [[ "$wall_time" =~ ^[0-9]{2}:[0-9]{2}:[0-9]{2}$ ]] || { echo "Invalid wall time" >&2; exit 2; }
 [[ "$cpus" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid CPU count" >&2; exit 2; }
 [[ "$memory" =~ ^[1-9][0-9]*[KMGTP]?$ ]] || { echo "Invalid memory" >&2; exit 2; }
@@ -71,8 +75,9 @@ if [[ ! -x "\$env_path/bin/python" ]]; then
   conda create -y --copy -p "\$env_path" python=$python_version pip
 fi
 "\$env_path/bin/python" -m pip install --upgrade pip
-"\$env_path/bin/python" -m pip install torch --index-url https://download.pytorch.org/whl/cu128
-"\$env_path/bin/python" -m pip install "\${workdir}[dev,figures]"
+# Pin torch so installing torchvision (for LPIPS) can never upgrade it.
+"\$env_path/bin/python" -m pip install "torch==$torch_version" torchvision --index-url https://download.pytorch.org/whl/cu128
+"\$env_path/bin/python" -m pip install "\${workdir}[dev,figures,eval]" "torch==$torch_version"
 "\$env_path/bin/python" -m pip uninstall -y distance-decayed-memory
 # Conda keeps each package's original (often years-old) file mtimes, which the
 # scratch purge deletes within a day; stamp every file with the build time.
@@ -83,7 +88,7 @@ if [[ -n "\$broken" ]]; then
   echo "\$broken" >&2
   exit 1
 fi
-"\$env_path/bin/python" -c 'import bz2, ctypes, lzma, sqlite3, PIL, numpy, torch, torch._functorch.partitioners; print("imports ok")'
+"\$env_path/bin/python" -c 'import bz2, ctypes, lzma, sqlite3, PIL, numpy, scipy, torch, torchvision, lpips, torch._functorch.partitioners; print("imports ok")'
 mkdir -p "\$workdir/environment"
 "\$env_path/bin/python" -m pip freeze > "\$workdir/environment/hpc-$env_name.txt"
 "\$env_path/bin/python" -c 'import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())'
