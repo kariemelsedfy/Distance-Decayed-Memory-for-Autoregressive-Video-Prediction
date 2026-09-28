@@ -53,3 +53,19 @@ future work does not silently change experimental meaning.
   must be measured in the A2 pilot before the sweep is launched. Stopping the
   sweep early still yields the headline result, because the protected core runs
   first.
+
+## D-008 — Scripted-revisit episode conventions
+
+- **Status:** accepted (2026-09-23); owner may revisit at the A0 check-in
+- **Decision:** Generate episodes with Memory Maze's pinned private builder
+  `tasks._memory_maze` so episodes can exceed the public 1,000-step 9×9 time
+  limit; disable `target_color_in_image` so the frame border does not encode
+  task state the scripted agent ignores; store `actions[t]` as the action taken
+  after `frames[t]` (it produces `frames[t + 1]`); and score revisits by the
+  **realized** gap (`return_frame − anchor_frame`), keeping the sampled target
+  gap only as metadata. Returns that arrive before `min_gap` are labelled
+  `early` and are not scripted revisits.
+- **Consequence:** Frames show only the maze, the agent's view, and objects;
+  the private builder is tied to `memory-maze==1.0.3` and must be rechecked on
+  any upgrade. Gap buckets come from what actually happened, not from the
+  schedule.
