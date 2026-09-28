@@ -19,6 +19,8 @@ jobs:
           cache: pip
       - name: Install development tools
         run: python -m pip install --upgrade pip && python -m pip install -e '.[dev]'
+      - name: Install CPU PyTorch
+        run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Lint and format check
         run: pre-commit run --all-files --show-diff-on-failure
       - name: CPU tests
