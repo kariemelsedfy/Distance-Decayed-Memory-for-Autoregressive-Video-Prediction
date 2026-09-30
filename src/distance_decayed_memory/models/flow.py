@@ -138,10 +138,36 @@ class StreamingCache:
         self.local_chunks = local_chunks
         self.pending: deque[tuple[torch.Tensor, torch.Tensor, int]] = deque()
 
-    def model_cache(self) -> ModelCache | None:
+    def fork(self) -> StreamingCache:
+        """An independent branch sharing nothing that either side will modify."""
+        twin = StreamingCache([policy.fork() for policy in self.policies], 0)
+        twin.local_chunks = self.local_chunks
+        twin.pending = deque(self.pending)
+        return twin
+
+    def model_cache(
+        self,
+        ablation: str | None = None,
+        generator: torch.Generator | None = None,
+    ) -> ModelCache | None:
+        """Batch the policy caches plus the local window.
+
+        ``ablation`` (sanity check 5) changes only the policy part, never the
+        local window: ``"drop"`` removes it and ``"shuffle"`` permutes its
+        keys and values across token slots while keeping positions and weights.
+        """
+        if ablation not in (None, "drop", "shuffle"):
+            raise ValueError(f"unknown ablation {ablation!r}")
         parts = []
         for index, policy in enumerate(self.policies):
-            pieces = [policy.kv()] if policy.blocks else []
+            pieces = []
+            if policy.blocks and ablation != "drop":
+                k, v, pos, weight = policy.kv()
+                if ablation == "shuffle":
+                    order = torch.randperm(k.shape[-2], generator=generator)
+                    order = order.to(k.device)
+                    k, v = k[..., order, :], v[..., order, :]
+                pieces.append((k, v, pos, weight))
             for k, v, start in self.pending:
                 geometry = policy.geometry
                 frames = k.shape[-2] // geometry.tokens_per_frame

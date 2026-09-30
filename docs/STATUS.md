@@ -1,14 +1,10 @@
 # Project status
 
-**Updated:** 2026-09-23
-**Active phase:** Track A — A0 check-in with the owner (pilot done); A1/A2
-trainers smoke-tested
+**Updated:** 2026-09-28
+**Active phase:** Track A — A1 base model training; evaluation harness built
 **Active scope:** Track A only; Track B is deferred.
-**Active branch:** `phase2/a1-trainer` (merges the data stack and the model
-stack)
-**PRs (all draft, merge in this order):** #22 (issue #9) → #23 (#10) → #26
-(#11); #24 (#12) → #25 (#13); then the trainer PR for #14/#15 on
-`phase2/a1-trainer`.
+**Active branch:** `phase2/evaluation` (issues #16 and #17)
+**PRs:** #22–#27 merged into `main` on 2026-09-28; the evaluation PR is open.
 
 ## Done
 
@@ -102,25 +98,27 @@ stack)
   lost library files (`docs/hpc/environments.md`); `build_env.sh` now copies
   files and verifies links.
 
+- Merged PRs #22–#27; closed issues #9–#15 and #18.
+- Issues #16 and #17: evaluation protocols P1/P2, PSNR/SSIM/LPIPS, bootstrap
+  aggregation, the headline figure, and the six sanity checks, with cluster
+  job scripts. The oracle is capped at the horizon (D-013).
+
 ## In progress
 
 - Owner review of the draft PRs and the A0 check-in (pilot results, spot-check
   grid at `outputs/pilot/spot-check/spot_check.png` after fetching).
 
-## Next (needs owner approval where marked)
+## Next
 
-1. **Approve** generating the full splits (#18): train 20,000 × 2,048 frames
-   (~450 core-hours, ≈4.5 h on `main`), val 500, test 1,000 × 4,096; freeze and
-   hash the test manifest.
-2. **Approve** the A1 size check (S/M/L, short runs on 2 GPUs) and then the A1
-   run (≈28 h for 100k steps on 2 GPUs).
-3. Issue #16 evaluation harness (P1/P2, LPIPS/PSNR/SSIM, bootstrap CIs,
-   headline plot) and #17 sanity-check suite — CPU work that can start now.
-4. A2 pilot with a trained A1 model: fix the A2 step count and re-measure
-   staleness (0.30–0.49 relative key change on the barely trained smoke model).
-   **Gate:** owner approves the A3 sweep.
-5. Verify RELIC's discrete pattern against the paper (D-010 *(verify)*); issue
-   #7 (literature refresh) is independent.
+1. When A1 finishes (about 2026-10-01): add the LPIPS packages to
+   `dd-memory-gpu-20260928` (`scripts/hpc/build_env.sh` re-run), fetch A1's
+   curves and samples for the owner.
+2. A2 pilot from the A1 checkpoint: one short run per policy family at B-mid,
+   evaluate with P1 on val, run all six sanity checks, measure A2 cost,
+   staleness, and the check-6 discrepancy; fix the A2 step count.
+   **Gate:** owner approves the A3 sweep (about 7 days on 4 GPUs with L).
+3. Verify RELIC's discrete pattern against the paper (D-010 *(verify)*); issue
+   #7 (literature refresh) remains independent.
 
 ## Blockers
 

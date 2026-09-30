@@ -19,6 +19,7 @@ A policy therefore never keeps more than ``budget_tokens`` after
 
 from __future__ import annotations
 
+import copy
 import math
 from collections.abc import Callable
 
@@ -178,6 +179,10 @@ class MemoryPolicy:
             "kv_bytes": size,
         }
 
+    def fork(self) -> MemoryPolicy:
+        """An independent copy to branch from (evaluation protocol P1)."""
+        return copy.deepcopy(self)
+
     def detach_before(self, t: int) -> None:
         """Cut autograd history for blocks whose newest frame precedes ``t``."""
         for block in self.blocks:
@@ -234,15 +239,31 @@ class MemoryPolicy:
 
 
 class FullPolicy(MemoryPolicy):
-    """Exact cache, no budget or horizon: the oracle."""
+    """Exact cache with no budget: the oracle.
+
+    ``horizon`` is optional; evaluation caps the oracle at the same horizon as
+    every budgeted policy (D-013). Budget arguments are accepted and ignored so
+    one config can build any policy.
+    """
 
     name = "full"
 
-    def __init__(self, geometry: Geometry | None = None, **_: object) -> None:
-        super().__init__(None, None, geometry)
+    def __init__(
+        self,
+        geometry: Geometry | None = None,
+        horizon: int | None = None,
+        **_: object,
+    ) -> None:
+        super().__init__(None, horizon, geometry)
 
     def target_level(self, block: Block, now: int) -> int | None:
-        return 0
+        return None if self._beyond_horizon(block, now) else 0
+
+    def fork(self) -> FullPolicy:
+        """Share the (never modified) cells; new cells go only to the fork."""
+        twin = copy.copy(self)
+        twin.blocks = list(self.blocks)
+        return twin
 
 
 class WindowPolicy(MemoryPolicy):

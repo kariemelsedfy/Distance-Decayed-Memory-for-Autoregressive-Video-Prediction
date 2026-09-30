@@ -25,6 +25,11 @@ model = [
 figures = [
   "matplotlib>=3.8",
 ]
+eval = [
+  "lpips>=0.1.4",
+  "scipy>=1.11",
+  "tqdm>=4.66",
+]
 track-a = [
   "dm-control==1.0.47",
   "gym==0.26.2",

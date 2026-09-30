@@ -224,6 +224,17 @@ Metrics per frame: LPIPS (primary), PSNR, SSIM. Aggregate by gap bucket and by c
 - **Oracle gap** = error(policy) − error(`full`), per bucket. It reads as "how much worse than perfect memory".
 - Efficiency: cache bytes, attention FLOPs per chunk, and wall-clock time per generated frame.
 
+**Implemented (issue #16)** in `src/distance_decayed_memory/eval/`:
+`protocols.py` (P1 forks each episode's cache at every completed scripted
+return, so the prefix is encoded once; P2 batches equal-length episodes),
+`metrics.py` (PSNR, SSIM, LPIPS-AlexNet), and `results.py` (per-frame
+records, bootstrap intervals over (seed, episode) clusters, paired
+differences, memory gain, oracle gap). Scripts: `scripts/eval/evaluate.py`
+(refuses the frozen test split without `--final`), `scripts/eval/summarize.py`,
+`scripts/figures/headline.py`; cluster jobs via `scripts/hpc/submit_eval.sh`.
+Every budget is reported as policy budget + the shared 8-frame window (D-011);
+the oracle is capped at `H` (D-013).
+
 Statistics: 3 seeds per configuration (A2 seeds; A1 is shared). Report bootstrap 95% confidence intervals over episodes × seeds, and paired comparisons on the same episodes when comparing two policies.
 
 ---
@@ -335,6 +346,16 @@ These are cheap and catch the bugs that would otherwise produce a fake result.
 4. **Budget assertion** never fires, and the logged `stats()` totals are identical across policies.
 5. **Memory is actually used.** Shuffling or zeroing cache entries older than the window must hurt revisit error but leave novel-view error roughly unchanged.
 6. **Streaming = inference.** Cache contents during A2 training and during evaluation, for the same true frames, match up to noise augmentation.
+
+**Implemented (issue #17)** in `src/distance_decayed_memory/eval/sanity.py`.
+Checks 1–5 run inside `scripts/eval/summarize.py` from evaluation runs (check
+5 pairs a run with `--ablation drop` or `shuffle` against the same run
+without it); check 6 is `scripts/eval/check_streaming.py`. Check 6 is exact
+for `full` (keys match to 3e-16 on a test model). For compressing policies the
+two paths differ by design of D-011: at inference a chunk is encoded while the
+two chunks before it are still at full fidelity, whereas A2 recomputes it
+against the policy cache only. That discrepancy is reported (4% relative on a
+random test model) and must be measured on the trained model at the A2 pilot.
 
 ---
 
