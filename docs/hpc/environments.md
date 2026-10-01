@@ -4,7 +4,7 @@
 
 | Name | Purpose | Built by | Notes |
 |---|---|---|---|
-| `dd-memory-gpu-20260928` | GPU training (PyTorch cu128) | `scripts/hpc/build_env.sh --name dd-memory-gpu-20260928` | Current. Fresh package cache, file mtimes stamped at build; dependencies only (jobs set `PYTHONPATH=<checkout>/src`). Rebuild within about six weeks of its build date. |
+| `dd-memory-gpu-20260928` | GPU training (PyTorch cu128) | `scripts/hpc/build_env.sh --name dd-memory-gpu-20260928` | Current. Fresh package cache, file mtimes stamped at build; dependencies only (jobs set `PYTHONPATH=<checkout>/src`). Rebuild within about six weeks of its build date. Updated 2026-10-01 (from `main` at `26cca17`) to add torchvision 0.26.0 and LPIPS 0.1.4 for evaluation, with torch held at 2.11.0+cu128; lock in `environment/hpc-dd-memory-gpu-20260928.txt`. |
 | `dd-memory-gpu` | Former GPU environment | 2026-09-23 build | **Do not use:** lost 86 library files to the scratch purge on 2026-09-24. |
 | `dd-memory-memmaze-egl` | Memory Maze data generation (CPU, software EGL) | `slurm/memmaze-data.sbatch` setup mode | Has broken library links (below) but everything data generation imports works; rebuild with `--copy` before relying on it further. |
 | `dd-memory` | Phase 0 GPU environment | original `build_env.sh` | **Do not use:** broken `libbz2`, `libffi`, and `libstdc++` links. |

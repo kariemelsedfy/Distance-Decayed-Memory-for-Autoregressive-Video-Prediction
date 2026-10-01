@@ -1,10 +1,10 @@
 # Project status
 
-**Updated:** 2026-09-28
-**Active phase:** Track A — A1 base model training; evaluation harness built
+**Updated:** 2026-10-01
+**Active phase:** Track A — A1 base model complete; A2 pilot next
 **Active scope:** Track A only; Track B is deferred.
-**Active branch:** `phase2/evaluation` (issues #16 and #17)
-**PRs:** #22–#27 merged into `main` on 2026-09-28; the evaluation PR is open.
+**Active branch:** `phase2/a1-results`
+**PRs:** #22–#28 merged into `main`; the A1 results PR is a draft.
 
 ## Done
 
@@ -101,31 +101,36 @@
 - Merged PRs #22–#27; closed issues #9–#15 and #18.
 - Issues #16 and #17: evaluation protocols P1/P2, PSNR/SSIM/LPIPS, bootstrap
   aggregation, the headline figure, and the six sanity checks, with cluster
-  job scripts. The oracle is capped at the horizon (D-013).
+  job scripts. The oracle is capped at the horizon (D-013). Merged as PR #28.
+- **A1 base model complete** (job `69049`, run `a1-L-20260928T084605Z`):
+  100k steps in 3 d 4 h 40 min, one attempt, no requeue. Val loss 0.00124
+  (EMA), still falling slowly; one-clip sample PSNR 17.0 → 20.9 dB. Curves
+  and samples fetched to `outputs/a1-L-20260928T084605Z/`
+  (`scripts/figures/training_curves.py`).
+- Added torchvision and LPIPS to `dd-memory-gpu-20260928` (torch unchanged at
+  2.11.0+cu128); lock in `environment/hpc-dd-memory-gpu-20260928.txt`.
 
 ## In progress
 
-- Owner review of the draft PRs and the A0 check-in (pilot results, spot-check
-  grid at `outputs/pilot/spot-check/spot_check.png` after fetching).
+- Owner review of A1's curves and samples
+  (`outputs/a1-L-20260928T084605Z/training_curves.png`, `samples/*.gif`).
 
 ## Next
 
-1. When A1 finishes (about 2026-10-01): add the LPIPS packages to
-   `dd-memory-gpu-20260928` (`scripts/hpc/build_env.sh` re-run), fetch A1's
-   curves and samples for the owner.
-2. A2 pilot from the A1 checkpoint: one short run per policy family at B-mid,
+1. A2 pilot from the A1 checkpoint: one short run per policy family at B-mid,
    evaluate with P1 on val, run all six sanity checks, measure A2 cost,
    staleness, and the check-6 discrepancy; fix the A2 step count.
    **Gate:** owner approves the A3 sweep (about 7 days on 4 GPUs with L).
-3. Verify RELIC's discrete pattern against the paper (D-010 *(verify)*); issue
+2. Verify RELIC's discrete pattern against the paper (D-010 *(verify)*); issue
    #7 (literature refresh) remains independent.
 
 ## Blockers
 
 - **Scratch purge (found 2026-09-28):** `/mnt/hpc/tmp` deletes files older
   than an unknown threshold (at least 42 days) by modification time. It broke
-  two conda environments; the dataset (written 2026-09-23) and future
-  checkpoints are exposed from early November. **Owner action:** ask Bowdoin
+  two conda environments; the dataset (written 2026-09-23) and the A1
+  checkpoints (41 GB, written 2026-09-28 to 2026-10-01) are exposed from
+  early November. **Owner action:** ask Bowdoin
   HPC staff for the exact policy and a persistent location for data and
   checkpoints. Details: `docs/hpc/environments.md`.
 - The GPU ceiling is a recorded plan constraint (D-007). HPC home remains at
@@ -133,9 +138,6 @@
 
 ## Running jobs
 
-- **A1 base model, size L** (D-012): job `69049`, run
-  `a1-L-20260928T084605Z`, started 2026-09-28 04:46 EDT. 188.8 frames/s,
-  ETA about 2026-10-01 noon EDT. Validation every 2,000 steps, sample GIF
-  every 10,000, checkpoint every 1,000 (auto-resume on requeue).
-- Completed: full splits (test frozen, `docs/DATASETS.md`) and the S/M/L size
-  check.
+- None.
+- Completed: A1 base model (`69049`), full splits (test frozen,
+  `docs/DATASETS.md`), and the S/M/L size check.
