@@ -87,14 +87,17 @@ class MemoryPolicy:
             expected = self.geometry.frame_positions(frame)
             if pos is not None and not torch.equal(pos[span].to(expected), expected):
                 raise ValueError("pos must be the standard (t, y, x) grid")
-            frame_k = k[..., span, :]
+            # Copies, not views: a view would keep the caller's whole buffer
+            # (in A2, every stream's K/V for the step) alive while the block
+            # stays at level 0.
+            frame_k = k[..., span, :].clone()
             self.blocks.append(
                 Block(
                     t0=frame,
                     frames=1,
                     level=0,
                     k=frame_k,
-                    v=v[..., span, :],
+                    v=v[..., span, :].clone(),
                     pos=expected,
                     salience=self.salience(frame_k, frame),
                     sink=self.is_sink(frame),

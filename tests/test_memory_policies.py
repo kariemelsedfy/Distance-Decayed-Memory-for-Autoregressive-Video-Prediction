@@ -303,3 +303,17 @@ def test_rope_splits_model_head_dimensions_evenly() -> None:
     torch.testing.assert_close(before, after)
     with pytest.raises(ValueError, match="even"):
         axis_sizes(63)
+
+
+def test_append_does_not_keep_the_callers_buffer_alive() -> None:
+    geometry = Geometry()
+    policy = make_policy("full", geometry=geometry)
+    per_frame = geometry.tokens_per_frame
+    buffer = torch.randn(3, 2, 1, 4 * per_frame, 8)  # [streams, layers, heads, n, d]
+    policy.append(buffer[0], buffer[0].clone(), None, 0)
+    for block in policy.blocks:
+        assert (
+            block.k.untyped_storage().data_ptr() != buffer.untyped_storage().data_ptr()
+        )
+        assert block.k.untyped_storage().nbytes() == block.k.numel() * 4
+        assert block.v.untyped_storage().nbytes() == block.v.numel() * 4
