@@ -513,3 +513,30 @@ def test_full_policy_horizon_and_forks() -> None:
     copy = window.fork()
     copy.blocks[0].k.add_(1.0)
     assert not torch.equal(copy.blocks[0].k, window.blocks[0].k)
+
+
+def test_streaming_check_runs_from_an_args_file(setup, monkeypatch, tmp_path) -> None:
+    _, val, checkpoint = setup
+    args = tmp_path / "eval-args.json"
+    out = tmp_path / "run"
+    args.write_text(
+        json.dumps(
+            [
+                "--checkpoint",
+                str(checkpoint),
+                "--split-dir",
+                str(val),
+                "--frames",
+                "32",
+                "--output-dir",
+                str(out),
+            ]
+        )
+    )
+    assert (
+        run_main(
+            monkeypatch, "scripts/eval/check_streaming.py", "--args-file", str(args)
+        )
+        == 0
+    )
+    assert json.loads((out / "streaming_check.json").read_text())["passed"] is True
