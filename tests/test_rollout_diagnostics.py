@@ -9,7 +9,7 @@ torch = pytest.importorskip("torch")
 
 from distance_decayed_memory.eval import diagnostics as dx  # noqa: E402
 from distance_decayed_memory.train import a1  # noqa: E402
-from tests.test_evaluation import TINY, make_split, run_main  # noqa: E402
+from tests.test_evaluation import TINY, load_script, make_split, run_main  # noqa: E402
 
 
 def textured(size: int = 64, seed: int = 0) -> np.ndarray:
@@ -123,3 +123,7 @@ def test_rollout_diagnostics_end_to_end(tmp_path, monkeypatch) -> None:
     assert arrays["shift_left"].shape == (2, 8)
     assert len(list((out / "sheets").glob("actions-*.png"))) == 2
     assert len(list((out / "sheets").glob("*.png"))) == 4
+
+    monkeypatch.setattr("sys.argv", ["rollout_diagnostics.py", str(out)])
+    load_script("scripts/figures/rollout_diagnostics.py").main()
+    assert (out / "rollout_diagnostics.png").stat().st_size > 0
