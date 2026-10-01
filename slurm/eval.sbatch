@@ -8,9 +8,10 @@
 #SBATCH --mem=64G
 #SBATCH --output=/mnt/hpc/tmp/%u/dd-memory/logs/%x-%j.out
 
-# One evaluation run (scripts/eval/evaluate.py). Submitted by
-# scripts/hpc/submit_eval.sh, which writes the arguments to
-# $run_dir/eval-args.json (JSON policy configs cannot pass through --export).
+# One evaluation run (scripts/eval/evaluate.py, or another scripts/eval/ script
+# named by DD_MEMORY_EVAL_SCRIPT). Submitted by scripts/hpc/submit_eval.sh,
+# which writes the arguments to $run_dir/eval-args.json (JSON policy configs
+# cannot pass through --export).
 
 source /etc/profile
 set -euo pipefail
@@ -30,4 +31,4 @@ DD_MEMORY_GIT_SHA=$(git -C "$DD_MEMORY_CHECKOUT" rev-parse HEAD)
 mkdir -p "$TORCH_HOME" "$TMPDIR"
 cd "$DD_MEMORY_CHECKOUT"
 echo "git $DD_MEMORY_GIT_SHA; node $(hostname); run $DD_MEMORY_RUN_ID"
-"$env_path/bin/python" scripts/eval/evaluate.py --args-file "$run_dir/eval-args.json"
+"$env_path/bin/python" "${DD_MEMORY_EVAL_SCRIPT:-scripts/eval/evaluate.py}" --args-file "$run_dir/eval-args.json"
