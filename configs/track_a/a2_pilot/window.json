@@ -6,6 +6,7 @@
   },
   "streams": 8,
   "grad_chunks": 2,
+  "activation_checkpointing": true,
   "learning_rate": 5e-05,
   "warmup_steps": 200,
   "max_steps": 5000,
