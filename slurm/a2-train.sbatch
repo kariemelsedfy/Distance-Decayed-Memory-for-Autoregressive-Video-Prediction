@@ -30,6 +30,8 @@ export TORCHINDUCTOR_CACHE_DIR="/mnt/hpc/tmp/$USER/cache/inductor"
 export TRITON_CACHE_DIR="/mnt/hpc/tmp/$USER/cache/triton"
 export TMPDIR="/mnt/hpc/tmp/$USER/tmp"
 export PYTHONNOUSERSITE=1
+# Avoid fragmentation with large caches (see slurm/eval.sbatch); layout only.
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 # The environment holds dependencies only; the code comes from this checkout
 # (checked below).
 export PYTHONPATH="$DD_MEMORY_CHECKOUT/src"
