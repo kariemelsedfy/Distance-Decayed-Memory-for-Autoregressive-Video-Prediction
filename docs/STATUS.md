@@ -129,16 +129,23 @@
 
 ## In progress
 
-- Pilot oracle (`full`, H 256): jobs `69458` (100 episodes, ≈6.7 h) and
-  `69460` (30 episodes, insurance). Gives checks 1 (window cliff) and 2.
+- Pilot oracle result (`69460`, 30 episodes): the A1 `full` oracle is
+  **invalid** — LPIPS ≈0.40 everywhere, broken from the first generated
+  frames, because A1 never trained beyond 64-frame contexts. The A2 decay
+  model is also worse with a full 256-frame cache (0.226) than with its own
+  budgeted cache (0.190): **more memory currently hurts**. `69458` (100
+  episodes) still running; it cannot change this conclusion.
 - Owner decisions before A3 (below).
 
 ## Next
 
-1. Finish the pilot: oracle results → checks 1 and 2 → write-up for the A3
-   gate. **Recommendation so far: do not launch A3 as planned** until memory
-   measurably helps revisits (options: equal full-fidelity recent window for
-   all policies, longer A2, revisit-weighted loss, longer A1 clips).
+1. **A3 gate: recommend not launching A3 as planned.** The base model cannot
+   use long contexts, so the policy comparison would measure tolerance to
+   unfamiliar caches, not recall. First make long memory usable: extend A1
+   to long clips (e.g. 256 frames) so the model learns to attend far back;
+   then re-run the pilot with a trained oracle at an affordable horizon.
+   Revisit-weighted loss and an equal recent window for all policies are
+   secondary. Owner decides.
 2. **Owner decisions:** (a) the `full` oracle cannot be trained in A2 with 8
    streams (≈50 GB cache per stream) and cannot be evaluated at H 2,048
    (≈4 fp32 copies of the cache, ≈200 GB+) without reworking cache
