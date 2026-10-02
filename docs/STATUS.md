@@ -1,10 +1,10 @@
 # Project status
 
-**Updated:** 2026-10-01
-**Active phase:** Track A — A1 base model complete; A2 pilot next
+**Updated:** 2026-10-02
+**Active phase:** Track A — A2 pilot trained and mostly evaluated; A3 gate pending
 **Active scope:** Track A only; Track B is deferred.
-**Active branch:** `phase2/a1-results`
-**PRs:** #22–#28 merged into `main`; the A1 results PR is a draft.
+**Active branch:** `phase2/a1-rollout-diagnostics` (stacked on `phase2/a1-results`)
+**PRs:** #22–#28 merged into `main`; #29 (A1 results) is a draft.
 
 ## Done
 
@@ -110,18 +110,40 @@
 - Added torchvision and LPIPS to `dd-memory-gpu-20260928` (torch unchanged at
   2.11.0+cu128); lock in `environment/hpc-dd-memory-gpu-20260928.txt`.
 
+- A1 rollout diagnostics (job `69372`): rollouts follow actions (turning
+  shift ±11.7 px/frame vs ±9–10 in real frames; noop holds still) and drift
+  like a sampler (truth-vs-generated PSNR tracks seed-vs-seed). Wall-filled
+  views lock in for many rollouts; the automatic `stuck` flag missed them.
+- A2 trainer: activation checkpointing option; fixed a memory leak (policies
+  stored *views* of each step's whole K/V buffer, `5747538`).
+- **A2 pilot** (B-mid, seed 0, 5,000 steps, five policies, jobs
+  `69392`–`69395`, `69430`, `69431`): all completed; ≈0.65 steps/s, ≈8.5
+  GPU-hours per 20k-step run; loss levels off by ~2,500 steps; budgets held.
+- **Pilot P1 on val (100 episodes):** `window` beats every memory-keeping
+  policy in every gap bucket *and* on novel views (LPIPS 0.12 novel vs
+  0.16–0.17); no policy shows a long-gap revisit benefit. Check 3
+  (equivalence) exact; check 4 (budgets) passes; check 5 (memory used) fails:
+  dropping `decay_continuous`'s memory hurts revisits and novel views alike;
+  check 6 exact for `full`, 3.7% / 6.0% for decay / relic (D-011 by design).
+  Details: `docs/EXPERIMENTS.md`, journal 2026-10-02.
+
 ## In progress
 
-- Owner review of A1's curves and samples
-  (`outputs/a1-L-20260928T084605Z/training_curves.png`, `samples/*.gif`).
+- Pilot oracle (`full`, H 256): jobs `69458` (100 episodes, ≈6.7 h) and
+  `69460` (30 episodes, insurance). Gives checks 1 (window cliff) and 2.
+- Owner decisions before A3 (below).
 
 ## Next
 
-1. A2 pilot from the A1 checkpoint: one short run per policy family at B-mid,
-   evaluate with P1 on val, run all six sanity checks, measure A2 cost,
-   staleness, and the check-6 discrepancy; fix the A2 step count.
-   **Gate:** owner approves the A3 sweep (about 7 days on 4 GPUs with L).
-2. Verify RELIC's discrete pattern against the paper (D-010 *(verify)*); issue
+1. Finish the pilot: oracle results → checks 1 and 2 → write-up for the A3
+   gate. **Recommendation so far: do not launch A3 as planned** until memory
+   measurably helps revisits (options: equal full-fidelity recent window for
+   all policies, longer A2, revisit-weighted loss, longer A1 clips).
+2. **Owner decisions:** (a) the `full` oracle cannot be trained in A2 with 8
+   streams (≈50 GB cache per stream) and cannot be evaluated at H 2,048
+   (≈4 fp32 copies of the cache, ≈200 GB+) without reworking cache
+   attention; (b) whether a 4–6% check-6 difference is acceptable.
+3. Verify RELIC's discrete pattern against the paper (D-010 *(verify)*); issue
    #7 (literature refresh) remains independent.
 
 ## Blockers
@@ -133,11 +155,14 @@
   early November. **Owner action:** ask Bowdoin
   HPC staff for the exact policy and a persistent location for data and
   checkpoints. Details: `docs/hpc/environments.md`.
+- The working copy is inside OneDrive, which corrupted `.git` on 2026-10-01
+  (renamed `refs/remotes/origin/phase2` to `phase2 2`, rolled a branch back
+  one commit; nothing lost). Move the working copy out of OneDrive.
 - The GPU ceiling is a recorded plan constraint (D-007). HPC home remains at
   its 25,600 MB hard limit; keep everything on scratch.
 
 ## Running jobs
 
-- None.
+- `69458`, `69460`: pilot oracle evaluations (above).
 - Completed: A1 base model (`69049`), full splits (test frozen,
   `docs/DATASETS.md`), and the S/M/L size check.
