@@ -77,3 +77,18 @@ The oracle (`full`, 256 frames) decides how to read this: if perfect memory
 beats `window` on revisits, recall is possible and the compressed policies
 fail to use it; if not, the training setup has to change before A3. Either
 way, A3 should not launch as planned; options are in `STATUS.md`.
+
+## Update: the oracle result (09:30)
+
+The 30-episode oracle (`69460`) scores LPIPS ≈0.40 in every bucket, novel
+views included, and is already broken over the first 8 generated frames
+(0.36, versus about 0.05 for every budgeted policy). A1 trained only on
+64-frame clips and has never attended to a 256-frame cache, so it is not a
+valid oracle. The A2 `decay_continuous` model is also worse with a perfect
+256-frame cache than with its own small one (0.226 vs 0.190).
+
+In plain language: right now, giving the model *more* memory makes it worse,
+because it was never trained to look that far back. Comparing memory
+policies on this model would measure which cache looks least unfamiliar, not
+which one helps it remember. The base model needs training on long contexts
+before the comparison means anything.
