@@ -25,6 +25,9 @@ export TORCHINDUCTOR_CACHE_DIR="/mnt/hpc/tmp/$USER/cache/inductor"
 export TRITON_CACHE_DIR="/mnt/hpc/tmp/$USER/cache/triton"
 export TMPDIR="/mnt/hpc/tmp/$USER/tmp"
 export PYTHONNOUSERSITE=1
+# Large, growing caches fragment the default allocator (job 69454 failed with
+# 34 GB reserved but unused); expandable segments only change the layout.
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export PYTHONPATH="$DD_MEMORY_CHECKOUT/src"
 export DD_MEMORY_GIT_SHA
 DD_MEMORY_GIT_SHA=$(git -C "$DD_MEMORY_CHECKOUT" rev-parse HEAD)
