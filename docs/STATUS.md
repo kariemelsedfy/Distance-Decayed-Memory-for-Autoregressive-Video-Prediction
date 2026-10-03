@@ -1,7 +1,7 @@
 # Project status
 
-**Updated:** 2026-10-02
-**Active phase:** Track A — A2 pilot trained and mostly evaluated; A3 gate pending
+**Updated:** 2026-10-03
+**Active phase:** Track A — H 64 pilot complete (first positive result); A3 redesign pending
 **Active scope:** Track A only; Track B is deferred.
 **Active branch:** `phase2/a1-rollout-diagnostics` (stacked on `phase2/a1-results`)
 **PRs:** #22–#28 merged into `main`; #29 (A1 results) is a draft.
@@ -129,23 +129,24 @@
 
 ## In progress
 
-- Pilot oracle result (`69460`, 30 episodes): the A1 `full` oracle is
-  **invalid** — LPIPS ≈0.40 everywhere, broken from the first generated
-  frames, because A1 never trained beyond 64-frame contexts. The A2 decay
-  model is also worse with a full 256-frame cache (0.226) than with its own
-  budgeted cache (0.190): **more memory currently hurts**. `69458` (100
-  episodes) still running; it cannot change this conclusion.
-- Owner decisions before A3 (below).
+- **H 64 pilot complete** (owner's plan, 2026-10-02): every policy capped at
+  A1's trained 64-frame context. Step 1: A1 `full` beats `window` on revisits
+  24–63 frames back (+0.015 to +0.032 LPIPS). Step 2: 11 A2 runs (5 policies
+  × B-mid/B-low + trained `full`), P1 on 100 val episodes.
+  **`decay_continuous` beats `relic_discrete` and `uniform_subsample` at both
+  budgets and matches the trained `full` at B-mid** (revisits 48–63: decay
+  0.148, full 0.146, relic 0.151, uniform 0.155, window 0.175; at B-low decay
+  0.153 vs relic 0.189). One seed, val, short range only.
+  Details: `docs/EXPERIMENTS.md`, journal 2026-10-03.
+- Owner decision on the next step (below).
 
 ## Next
 
-1. **A3 gate: recommend not launching A3 as planned.** The base model cannot
-   use long contexts, so the policy comparison would measure tolerance to
-   unfamiliar caches, not recall. First make long memory usable: extend A1
-   to long clips (e.g. 256 frames) so the model learns to attend far back;
-   then re-run the pilot with a trained oracle at an affordable horizon.
-   Revisit-weighted loss and an equal recent window for all policies are
-   secondary. Owner decides.
+1. **Owner decision:** (a) run the A3 design at H 64 now (3 seeds, B-low and
+   B-mid, fairness tuning of every policy's knob, test split), which
+   supports a short-range claim; and/or (b) extend A1 to longer clips (e.g.
+   256 frames) so the long-horizon claim can be tested. Long-horizon
+   evaluation also needs the cache-assembly rework (fp32, several copies).
 2. **Owner decisions:** (a) the `full` oracle cannot be trained in A2 with 8
    streams (≈50 GB cache per stream) and cannot be evaluated at H 2,048
    (≈4 fp32 copies of the cache, ≈200 GB+) without reworking cache
