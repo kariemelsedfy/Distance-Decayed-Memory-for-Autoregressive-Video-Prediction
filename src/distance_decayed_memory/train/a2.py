@@ -76,6 +76,7 @@ class A2Config:
     noise_schedule: str = "logit_normal"
     augment_max: float = 0.05
     precision: str = "bf16"
+    activation_checkpointing: bool = False
     seed: int = 0
     stage_root: str | None = None
     log_every: int = 50
@@ -214,6 +215,7 @@ def train(config: A2Config) -> int:
     model.load_state_dict(base["ema"])
     model.to(device).train()
     ema = copy.deepcopy(model).requires_grad_(False)
+    model.activation_checkpointing = config.activation_checkpointing
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config.learning_rate, betas=config.betas
     )

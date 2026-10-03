@@ -132,13 +132,36 @@ class ModelCache:
         """Stack per-episode ``MemoryPolicy.kv()`` results; pad with invalid slots.
 
         Empty policies contribute only invalid slots; returns ``None`` when
-        every policy is empty.
+        every policy is empty. Blocks are copied straight into the padded
+        batch, so no per-episode concatenation is held alongside it (the same
+        result as ``from_parts`` over ``kv()``, with one copy of the cache less).
         """
-        return cls.from_parts(
-            [policy.kv() if policy.blocks else None for policy in policies],
-            dtype,
-            device,
-        )
+        present = [policy for policy in policies if policy.blocks]
+        if not present:
+            return None
+        first = present[0].blocks[0].k
+        layers, heads, _, dim = first.shape
+        dtype = dtype or first.dtype
+        device = device or first.device
+        length = max(policy.total_tokens() for policy in present)
+        batch = len(policies)
+        k = torch.zeros(batch, layers, heads, length, dim, dtype=dtype, device=device)
+        v = torch.zeros_like(k)
+        pos = torch.zeros(batch, length, 3, dtype=torch.float64, device=device)
+        weight = torch.ones(batch, length, dtype=torch.float64, device=device)
+        valid = torch.zeros(batch, length, dtype=torch.bool, device=device)
+        for index, policy in enumerate(policies):
+            offset = 0
+            for block in policy.blocks:
+                n = block.k.shape[-2]
+                span = slice(offset, offset + n)
+                k[index, ..., span, :] = block.k.to(k)
+                v[index, ..., span, :] = block.v.to(v)
+                pos[index, span] = block.pos.to(pos)
+                weight[index, span] = float(block.volume)
+                valid[index, span] = True
+                offset += n
+        return cls(k, v, pos, weight, valid)
 
     @classmethod
     def from_parts(cls, parts, dtype=None, device=None) -> ModelCache | None:

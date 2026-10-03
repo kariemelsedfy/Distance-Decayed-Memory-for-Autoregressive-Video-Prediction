@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import sys
 
 import numpy as np
 import torch
@@ -29,7 +30,16 @@ def main() -> int:
     parser.add_argument("--episode", type=int, default=0)
     parser.add_argument("--policy-config", type=json.loads, default=None)
     parser.add_argument("--output", type=pathlib.Path)
-    args = parser.parse_args()
+    parser.add_argument(
+        "--output-dir", type=pathlib.Path, help="writes streaming_check.json there"
+    )
+    argv = sys.argv[1:]
+    if argv[:1] == ["--args-file"]:  # as written by scripts/hpc/submit_eval.sh
+        argv = json.loads(pathlib.Path(argv[1]).read_text())
+    args = parser.parse_args(argv)
+    if args.output_dir and not args.output:
+        args.output_dir.mkdir(parents=True, exist_ok=True)
+        args.output = args.output_dir / "streaming_check.json"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     state = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     config = DiTConfig(**state["model_config"])

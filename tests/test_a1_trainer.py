@@ -113,3 +113,34 @@ def test_learning_rate_schedule() -> None:
     assert a1.learning_rate(schedule, 0) == pytest.approx(2e-5)
     assert a1.learning_rate(schedule, 9) == pytest.approx(2e-4)
     assert a1.learning_rate(schedule, 110) == pytest.approx(2e-5)
+
+
+def test_init_checkpoint_starts_from_the_base_ema(tmp_path: pathlib.Path) -> None:
+    base = config(tmp_path, max_steps=3, sample_every=100)
+    assert a1.train(base) == 0
+    base_state = torch.load(
+        pathlib.Path(base.run_dir) / "checkpoints" / "latest.pt", weights_only=False
+    )
+    longer = config(
+        tmp_path,
+        run_dir=str(tmp_path / "longer"),
+        init_checkpoint=str(pathlib.Path(base.run_dir) / "checkpoints" / "latest.pt"),
+        clip_frames=16,
+        max_steps=0,
+        sample_every=100,
+    )
+    assert a1.train(longer) == 0
+    state = torch.load(
+        pathlib.Path(longer.run_dir) / "checkpoints" / "latest.pt", weights_only=False
+    )
+    for name, value in base_state["ema"].items():
+        assert torch.equal(state["model"][name], value), name
+        assert torch.equal(state["ema"][name], value), name
+    mismatch = config(
+        tmp_path,
+        run_dir=str(tmp_path / "mismatch"),
+        init_checkpoint=str(pathlib.Path(base.run_dir) / "checkpoints" / "latest.pt"),
+        model_overrides={**TINY, "width": 32},
+    )
+    with pytest.raises(ValueError, match="different model configuration"):
+        a1.train(mismatch)
