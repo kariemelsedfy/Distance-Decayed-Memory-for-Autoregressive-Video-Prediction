@@ -341,13 +341,18 @@ class UniformSubsamplePolicy(MemoryPolicy):
         return None
 
 
+# RELIC's published schedule (arXiv 2512.04040): per-side downsampling
+# S = [1,4,2,4,4,4,2,4,4,2,4,4,4,2,4,4,2,4] by frame index, as levels (D-014).
+RELIC_PATTERN = (0, 4, 2, 4, 4, 4, 2, 4, 4, 2, 4, 4, 4, 2, 4, 4, 2, 4)
+
+
 class RelicDiscretePolicy(MemoryPolicy):
     """A recent window plus a fixed, distance-independent compression pattern.
 
     Following RELIC's discrete schedule, each older frame keeps a spatial
     downsampling factor chosen by a repeating pattern over frame index
-    (default 1×, 4×, 2×, 4× per side, i.e. levels 0, 4, 2, 4). To reach the
-    horizon at equal budget, only every ``stride``-th older frame is kept.
+    (default: RELIC's 18-frame schedule, ``RELIC_PATTERN``). RELIC keeps every
+    older frame; to fit a smaller budget, only every ``stride``-th is kept.
     """
 
     name = "relic_discrete"
@@ -357,7 +362,7 @@ class RelicDiscretePolicy(MemoryPolicy):
         budget_tokens: int,
         horizon: int,
         window: int = 4,
-        pattern: tuple[int, ...] = (0, 4, 2, 4),
+        pattern: tuple[int, ...] = RELIC_PATTERN,
         geometry: Geometry | None = None,
     ) -> None:
         super().__init__(budget_tokens, horizon, geometry)
