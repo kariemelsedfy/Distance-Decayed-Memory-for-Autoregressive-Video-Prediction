@@ -138,7 +138,12 @@
   0.148, full 0.146, relic 0.151, uniform 0.155, window 0.175; at B-low decay
   0.153 vs relic 0.189). One seed, val, short range only.
   Details: `docs/EXPERIMENTS.md`, journal 2026-10-03.
-- Owner decision on the next step (below).
+- **Running (owner-approved 2026-10-03, both options):**
+  - Option 2: `a1-L256` (job `69679`), A1 on 256-frame clips from A1's
+    weights, 25k steps, ≈95 frames/s; step 15k on 2026-10-04 (val 0.0011).
+  - Option 1: A3 at H 64 (D-014 RELIC schedule, D-015 design). Fairness
+    tuning done (decay scale 8, relic window 2, uniform window 1, sinks 1);
+    48-run sweep and test evaluations queued (`docs/a3-h64-jobs.tsv`).
 
 ## Next
 
