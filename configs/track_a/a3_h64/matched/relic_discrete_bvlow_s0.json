@@ -1,0 +1,38 @@
+{
+  "policy": "relic_discrete",
+  "policy_config": {
+    "budget_tokens": 1024,
+    "horizon": 64,
+    "window": 2,
+    "pattern": [
+      0,
+      4,
+      2,
+      4,
+      4,
+      4,
+      2,
+      4,
+      4,
+      2,
+      4,
+      4,
+      4,
+      2,
+      4,
+      4,
+      2,
+      4
+    ]
+  },
+  "streams": 8,
+  "grad_chunks": 2,
+  "activation_checkpointing": true,
+  "learning_rate": 5e-05,
+  "warmup_steps": 200,
+  "max_steps": 3000,
+  "log_every": 50,
+  "checkpoint_every": 500,
+  "staleness_every": 500,
+  "seed": 0
+}

@@ -188,3 +188,30 @@ future work does not silently change experimental meaning.
   intervals (`scripts/eval/compare_gaps.py`); new views reported separately.
 - **Consequence:** The claim is about short revisits (under 64 frames) and
   budget allocation; longer horizons wait for the 256-frame A1 stage.
+
+## D-016 — Matched-recency ablation and the recall-specific endpoint
+
+- **Status:** accepted by the owner (2026-10-07); written before the
+  ablation runs and before the endpoint was computed on any data (the A3
+  tables by gap bucket had been seen).
+- **Objection addressed:** `decay_continuous` may win only because it keeps
+  more recent frames at full fidelity, not because of how it allocates the
+  rest. Equal *declared* windows do not answer this: with scale 8 the tuned
+  decay keeps 10, 4, and 2 contiguous full-fidelity frames at B-mid, B-low,
+  and B-vlow (density 256 tokens/frame), more than its declared window.
+- **Ablation:** `relic_discrete` and `uniform_subsample` with a recent window
+  equal to decay's full-fidelity span (10 / 4 / 2 frames), everything else as
+  in the A3 sweep (3,000 steps, seeds 0–2, P1 on the first 100 test
+  episodes). Compared with the A3 `decay_continuous` runs. Seed-0 B-low runs
+  from tuning (relic window 4) and the H 64 pilot (uniform window 4) have
+  identical configs and are reused.
+- **Recall-specific endpoint (primary):** for policies P and Q at one
+  budget, `Δ_recall = [L_Q − L_P](revisits, gap 24–63) − [L_Q − L_P](revisits,
+  gap ≥ 64)`, LPIPS paired by frame, pooled over seeds, 95% bootstrap over
+  (seed, episode). Gaps 24–63 lie beyond the shared window and within the
+  horizon (retrievable); gaps ≥ 64 are revisits no policy retains, so the
+  difference removes general-context gains. Primary comparison:
+  `decay_continuous` vs `relic_discrete` at B-low with matched recency.
+  Secondary (Holm-corrected): the same at B-mid and B-vlow, against
+  `uniform_subsample`, and against the A3 (unmatched) runs. A
+  novel-view-controlled version is reported alongside.
