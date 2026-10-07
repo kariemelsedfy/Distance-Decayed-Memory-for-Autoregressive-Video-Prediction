@@ -144,7 +144,10 @@
   - Option 1: **A3 at H 64 complete** (D-014, D-015; 48 runs, test split,
     3 seeds): `decay_continuous` is the best budgeted policy at every budget
     and beats tuned RELIC in 19 of 21 cells; results in
-    `docs/results/a3-h64.md` and `docs/results/a3_h64.png`.
+    `docs/results/a3-h64.md` and `docs/results/a3_h64.png`. **But the
+    recall-specific endpoint (D-016) shows no recall advantage over RELIC**
+    at any budget: decay's lead is general generation quality. Matched-
+    recency ablation running (`docs/a3-h64-matched-jobs.tsv`).
   - Option 2: `a1-L256` complete (25k steps, val 0.00102); its memory check
     (`full` H 256 vs `window` vs `full` H 64) is running (jobs 70329–70332).
 
