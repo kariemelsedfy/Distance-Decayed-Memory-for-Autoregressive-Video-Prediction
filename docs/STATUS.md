@@ -148,8 +148,14 @@
     recall-specific endpoint (D-016) shows no recall advantage over RELIC**
     at any budget: decay's lead is general generation quality. Matched-
     recency ablation running (`docs/a3-h64-matched-jobs.tsv`).
-  - Option 2: `a1-L256` complete (25k steps, val 0.00102); its memory check
-    (`full` H 256 vs `window` vs `full` H 64) is running (jobs 70329–70332).
+  - Matched-recency ablation complete: decay's quality lead over RELIC is
+    not from recency; the primary recall endpoint (B-low) is null
+    (+0.003, p = 0.32); B-vlow shows a small recall effect (+0.012).
+  - Option 2: `a1-L256` complete, but a full 256-frame cache still hurts
+    it (novel LPIPS 0.177 vs 0.106 at 64 frames). Likely cause: A1's
+    diffusion-forcing noise means it almost never trains on clean context.
+    Proposed fix: train with clean context chunks (or A2-style streaming
+    at H 256) before testing longer horizons. Owner decides.
 
 ## Next
 
