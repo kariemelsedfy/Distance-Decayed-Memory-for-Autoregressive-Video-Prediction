@@ -151,3 +151,67 @@ future work does not silently change experimental meaning.
 - **Consequence:** The oracle remains a true upper bound for every policy,
   since none can see beyond `H` either. The `[2048, 4096)` bucket compares
   all policies, oracle included, on what they retain within the horizon.
+
+## D-014 — `relic_discrete` uses RELIC's published schedule
+
+- **Status:** accepted (2026-10-03); resolves the D-010 *(verify)* note
+- **Decision:** RELIC (arXiv 2512.04040) keeps a rolling window of
+  uncompressed latents and every older latent spatially downsampled by
+  `S[i mod 18]`, `S = [1,4,2,4,4,4,2,4,4,2,4,4,4,2,4,4,2,4]` (factors per
+  side; this matches its reported ≈4× overall reduction). In our levels that
+  is `pattern = (0,4,2,4,4,4,2,4,4,2,4,4,4,2,4,4,2,4)`, replacing the earlier
+  `(0,4,2,4)`. RELIC keeps every older frame; at H 64 that fits only at
+  B-mid, so lower budgets keep every `stride`-th frame (stride 2–6).
+- **Consequence:** Earlier `relic_discrete` runs used the shorter pattern
+  and are not reused. Results describe "RELIC's schedule at equal budget";
+  frame skipping below B-mid is reported.
+
+## D-015 — A3 runs at H 64 with fairness tuning and three budgets
+
+- **Status:** accepted by the owner (2026-10-03, option 1)
+- **Decision:** The main sweep caps every policy at A1's trained context,
+  `H = 64` frames, where the trained `full` oracle fits (pilot, 2026-10-02).
+  Budgets B-mid 4,096, B-low 2,048, and B-vlow 1,024 tokens (25%, 12.5%,
+  6.25% of horizon tokens) plus the shared 8-frame window (D-011); 5
+  policies × 3 budgets × 3 seeds + `full` × 3 seeds = 48 A2 runs of 3,000
+  steps (lr 5e-5, 8 streams, activation checkpointing).
+- **Fairness tuning** (val, B-low, seed 0, three values of one knob per
+  tunable policy, chosen before seeing results): `decay_continuous` scale
+  ∈ {8, 16, 32} frames (window 4); `relic_discrete` window ∈ {1, 2, 4};
+  `uniform_subsample` window ∈ {1, 2, 4}; `window_sink` sinks ∈ {1, 2, 4}.
+  Selection: lowest mean LPIPS over val revisit frames with gap in [24, 64)
+  on the first 100 val episodes; ties keep the smaller value. Recent-window
+  knobs scale with the budget (`w × B / 2,048`, at least 1); decay scale and
+  sink count do not.
+- **Evaluation:** P1 on the first 100 episodes of the frozen test split
+  (`--final`), seeds pooled, paired comparisons with episode-bootstrap
+  intervals (`scripts/eval/compare_gaps.py`); new views reported separately.
+- **Consequence:** The claim is about short revisits (under 64 frames) and
+  budget allocation; longer horizons wait for the 256-frame A1 stage.
+
+## D-016 — Matched-recency ablation and the recall-specific endpoint
+
+- **Status:** accepted by the owner (2026-10-07); written before the
+  ablation runs and before the endpoint was computed on any data (the A3
+  tables by gap bucket had been seen).
+- **Objection addressed:** `decay_continuous` may win only because it keeps
+  more recent frames at full fidelity, not because of how it allocates the
+  rest. Equal *declared* windows do not answer this: with scale 8 the tuned
+  decay keeps 10, 4, and 2 contiguous full-fidelity frames at B-mid, B-low,
+  and B-vlow (density 256 tokens/frame), more than its declared window.
+- **Ablation:** `relic_discrete` and `uniform_subsample` with a recent window
+  equal to decay's full-fidelity span (10 / 4 / 2 frames), everything else as
+  in the A3 sweep (3,000 steps, seeds 0–2, P1 on the first 100 test
+  episodes). Compared with the A3 `decay_continuous` runs. Seed-0 B-low runs
+  from tuning (relic window 4) and the H 64 pilot (uniform window 4) have
+  identical configs and are reused.
+- **Recall-specific endpoint (primary):** for policies P and Q at one
+  budget, `Δ_recall = [L_Q − L_P](revisits, gap 24–63) − [L_Q − L_P](revisits,
+  gap ≥ 64)`, LPIPS paired by frame, pooled over seeds, 95% bootstrap over
+  (seed, episode). Gaps 24–63 lie beyond the shared window and within the
+  horizon (retrievable); gaps ≥ 64 are revisits no policy retains, so the
+  difference removes general-context gains. Primary comparison:
+  `decay_continuous` vs `relic_discrete` at B-low with matched recency.
+  Secondary (Holm-corrected): the same at B-mid and B-vlow, against
+  `uniform_subsample`, and against the A3 (unmatched) runs. A
+  novel-view-controlled version is reported alongside.

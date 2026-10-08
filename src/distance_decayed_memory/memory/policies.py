@@ -87,14 +87,17 @@ class MemoryPolicy:
             expected = self.geometry.frame_positions(frame)
             if pos is not None and not torch.equal(pos[span].to(expected), expected):
                 raise ValueError("pos must be the standard (t, y, x) grid")
-            frame_k = k[..., span, :]
+            # Copies, not views: a view would keep the caller's whole buffer
+            # (in A2, every stream's K/V for the step) alive while the block
+            # stays at level 0.
+            frame_k = k[..., span, :].clone()
             self.blocks.append(
                 Block(
                     t0=frame,
                     frames=1,
                     level=0,
                     k=frame_k,
-                    v=v[..., span, :],
+                    v=v[..., span, :].clone(),
                     pos=expected,
                     salience=self.salience(frame_k, frame),
                     sink=self.is_sink(frame),
@@ -338,13 +341,18 @@ class UniformSubsamplePolicy(MemoryPolicy):
         return None
 
 
+# RELIC's published schedule (arXiv 2512.04040): per-side downsampling
+# S = [1,4,2,4,4,4,2,4,4,2,4,4,4,2,4,4,2,4] by frame index, as levels (D-014).
+RELIC_PATTERN = (0, 4, 2, 4, 4, 4, 2, 4, 4, 2, 4, 4, 4, 2, 4, 4, 2, 4)
+
+
 class RelicDiscretePolicy(MemoryPolicy):
     """A recent window plus a fixed, distance-independent compression pattern.
 
     Following RELIC's discrete schedule, each older frame keeps a spatial
     downsampling factor chosen by a repeating pattern over frame index
-    (default 1×, 4×, 2×, 4× per side, i.e. levels 0, 4, 2, 4). To reach the
-    horizon at equal budget, only every ``stride``-th older frame is kept.
+    (default: RELIC's 18-frame schedule, ``RELIC_PATTERN``). RELIC keeps every
+    older frame; to fit a smaller budget, only every ``stride``-th is kept.
     """
 
     name = "relic_discrete"
@@ -354,7 +362,7 @@ class RelicDiscretePolicy(MemoryPolicy):
         budget_tokens: int,
         horizon: int,
         window: int = 4,
-        pattern: tuple[int, ...] = (0, 4, 2, 4),
+        pattern: tuple[int, ...] = RELIC_PATTERN,
         geometry: Geometry | None = None,
     ) -> None:
         super().__init__(budget_tokens, horizon, geometry)

@@ -101,3 +101,22 @@ def test_rollout_local_window_matches_training_structure(base) -> None:
     # Two local chunks at full fidelity plus the policy's two-frame window.
     assert cache.model_cache().k.shape[-2] == 2 * chunk + 2 * PER_FRAME
     assert cache.policies[0].now == 7
+
+
+def test_a2_activation_checkpointing_matches_plain_training(tmp_path, base) -> None:
+    losses = {}
+    for checkpointing in (False, True):
+        config = a2_config(
+            tmp_path / str(checkpointing),
+            base,
+            "decay_continuous",
+            activation_checkpointing=checkpointing,
+        )
+        assert a2.train(config) == 0
+        records = (pathlib.Path(config.run_dir) / "metrics.jsonl").read_text()
+        losses[checkpointing] = [
+            json.loads(line)["loss"]
+            for line in records.splitlines()
+            if "loss" in json.loads(line)
+        ]
+    assert losses[True] == pytest.approx(losses[False], rel=1e-4)

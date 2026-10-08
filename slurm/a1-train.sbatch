@@ -50,6 +50,8 @@ echo "$DD_MEMORY_GIT_SHA" > "$run_dir/git-sha.txt"
 # DD_STAGE_ROOT to copy them to node-local storage first.
 stage_args=()
 [[ -n "${DD_STAGE_ROOT:-}" ]] && stage_args=(--set "stage_root=$DD_STAGE_ROOT")
+# DD_INIT_CHECKPOINT starts a new run from another run's EMA weights.
+[[ -n "${DD_INIT_CHECKPOINT:-}" ]] && stage_args+=(--set "init_checkpoint=$DD_INIT_CHECKPOINT")
 workers=$(( ${SLURM_CPUS_PER_TASK:-4} > 3 ? SLURM_CPUS_PER_TASK - 2 : 1 ))
 
 child_pid=""

@@ -87,6 +87,9 @@ class A1Config:
     sample_steps: int = 16
     checkpoint_every: int = 1_000
     keep_every: int = 20_000
+    # Start a new run from another run's EMA weights (e.g. longer clips from
+    # the 64-frame base); ignored when the run resumes from its own checkpoint.
+    init_checkpoint: str | None = None
 
     def model_config(self) -> DiTConfig:
         return dataclasses.replace(SIZES[self.size], **self.model_overrides)
@@ -267,6 +270,14 @@ def train(config: A1Config) -> int:
         ema.load_state_dict(state["ema"])
         optimizer.load_state_dict(state["optimizer"])
         step = int(state["step"])
+    elif config.init_checkpoint:
+        base = torch.load(
+            config.init_checkpoint, map_location=device, weights_only=False
+        )
+        if base["model_config"] != dataclasses.asdict(model_config):
+            raise ValueError("init_checkpoint has a different model configuration")
+        model.load_state_dict(base["ema"])
+        ema.load_state_dict(base["ema"])
     if rank == 0:
         record = {
             "config": dataclasses.asdict(config),

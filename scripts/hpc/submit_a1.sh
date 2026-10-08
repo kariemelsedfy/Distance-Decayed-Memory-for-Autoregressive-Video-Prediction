@@ -11,6 +11,7 @@ wall_time="12:00:00"
 name="a1"
 partition="mixed"
 after=""
+init_checkpoint=""
 
 usage() {
   cat <<'EOF_USAGE'
@@ -28,6 +29,7 @@ Options:
   --partition P    mixed (default; 8 CPU and 128G per GPU task) or gpu
                    (2 CPU and 20G per task; the gpu QOS caps 4 CPU/40G)
   --after JOBID    start only after JOBID completes successfully
+  --init-checkpoint PATH  start from another run's EMA weights (absolute path)
 EOF_USAGE
 }
 
@@ -42,6 +44,7 @@ while [[ $# -gt 0 ]]; do
     --name) name="${2:?}"; shift 2 ;;
     --partition) partition="${2:?}"; shift 2 ;;
     --after) after="${2:?}"; shift 2 ;;
+    --init-checkpoint) init_checkpoint="${2:?}"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -54,6 +57,7 @@ done
 [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "invalid --name" >&2; exit 2; }
 [[ "$partition" == mixed || "$partition" == gpu ]] || { echo "invalid --partition" >&2; exit 2; }
 [[ -z "$after" || "$after" =~ ^[0-9:]+$ ]] || { echo "invalid --after" >&2; exit 2; }
+[[ -z "$init_checkpoint" || "$init_checkpoint" == /mnt/hpc/tmp/*.pt ]] || { echo "--init-checkpoint must be a .pt under /mnt/hpc/tmp" >&2; exit 2; }
 resources="--partition=$partition"
 [[ "$partition" == gpu ]] && resources+=" --cpus-per-task=2 --mem=$((20 * gpus))G"
 [[ -n "$after" ]] && resources+=" --dependency=afterok:$after"
@@ -65,6 +69,7 @@ run_id="$name-$(date -u +%Y%m%dT%H%M%SZ)"
 exports="ALL,DD_MEMORY_CHECKOUT=$remote_checkout,DD_MEMORY_RUN_ID=$run_id"
 exports+=",DD_A1_CONFIG=$(absolute "$config")"
 exports+=",DD_TRAIN_SPLIT=$(absolute "$train_split"),DD_VAL_SPLIT=$(absolute "$val_split")"
+[[ -n "$init_checkpoint" ]] && exports+=",DD_INIT_CHECKPOINT=$init_checkpoint"
 printf -v q_exports '%q' "$exports"
 printf -v q_batch '%q' "$remote_checkout/slurm/a1-train.sbatch"
 

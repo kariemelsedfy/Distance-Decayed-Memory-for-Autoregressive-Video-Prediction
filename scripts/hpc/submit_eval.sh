@@ -7,14 +7,16 @@ partition="mixed"
 wall_time="12:00:00"
 name="eval"
 after=""
+script="scripts/eval/evaluate.py"
 
 usage() {
   cat <<'EOF_USAGE'
 Usage: scripts/hpc/submit_eval.sh --workdir REMOTE_PATH [options] -- EVALUATE_ARGS...
 
 Submits one single-GPU evaluation. Everything after "--" is passed to
-scripts/eval/evaluate.py (relative paths resolve from the checkout); the
-script adds --output-dir as the run directory. Example:
+scripts/eval/evaluate.py, or to the --script given (relative paths resolve
+from the checkout); the script adds --output-dir as the run directory.
+Example:
 
   scripts/hpc/submit_eval.sh --workdir /mnt/hpc/tmp/$USER/dd-memory/checkouts/X \
     --name eval-decay -- --checkpoint /path/latest.pt \
@@ -25,6 +27,7 @@ Options:
   --time HH:MM:SS        wall time (default 12:00:00)
   --name NAME            run-id prefix (default eval)
   --after JOBID          start after JOBID succeeds
+  --script PATH          scripts/eval/*.py to run (default scripts/eval/evaluate.py)
 EOF_USAGE
 }
 
@@ -35,6 +38,7 @@ while [[ $# -gt 0 ]]; do
     --time) wall_time="${2:?}"; shift 2 ;;
     --name) name="${2:?}"; shift 2 ;;
     --after) after="${2:?}"; shift 2 ;;
+    --script) script="${2:?}"; shift 2 ;;
     --) shift; break ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -46,6 +50,7 @@ done
 [[ "$wall_time" =~ ^[0-9]{1,3}:[0-5][0-9]:[0-5][0-9]$ ]] || { echo "invalid --time" >&2; exit 2; }
 [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "invalid --name" >&2; exit 2; }
 [[ -z "$after" || "$after" =~ ^[0-9:]+$ ]] || { echo "invalid --after" >&2; exit 2; }
+[[ "$script" =~ ^scripts/eval/[A-Za-z0-9_]+\.py$ ]] || { echo "invalid --script" >&2; exit 2; }
 
 run_id="$name-$(date -u +%Y%m%dT%H%M%SZ)"
 run_dir="/mnt/hpc/tmp/\$USER/dd-memory/runs/$run_id"
@@ -56,7 +61,7 @@ resources="--partition=$partition"
 [[ "$partition" == gpu ]] && resources+=" --cpus-per-task=2 --mem=20G"
 [[ -n "$after" ]] && resources+=" --dependency=afterok:$after"
 printf -v q_batch '%q' "$remote_checkout/slurm/eval.sbatch"
-printf -v q_exports '%q' "ALL,DD_MEMORY_CHECKOUT=$remote_checkout,DD_MEMORY_RUN_ID=$run_id"
+printf -v q_exports '%q' "ALL,DD_MEMORY_CHECKOUT=$remote_checkout,DD_MEMORY_RUN_ID=$run_id,DD_MEMORY_EVAL_SCRIPT=$script"
 
 read -r -d '' remote_command <<EOF_REMOTE || true
 set -euo pipefail
